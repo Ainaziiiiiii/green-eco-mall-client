@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Copy, QrCode, Check, AlertCircle, Smartphone, UserCheck } from 'lucide-react';
+import { ArrowLeft, Copy, Check, AlertCircle, Smartphone, UserCheck } from 'lucide-react';
 import AuthLayout from './AuthLayout';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
@@ -10,9 +10,10 @@ import {
   useSendOtpMutation,
   useVerifyOtpMutation,
   useRegisterMutation,
+  useLoginMutation,
   useGetInviterQuery,
 } from '../../api/authApi';
-import { useCreateQrMutation, useCheckPaymentMutation } from '../../api/paymentApi';
+import { useCreateQrMutation } from '../../api/paymentApi';
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -99,7 +100,6 @@ interface Step3Props {
 }
 
 interface Step4Props {
-  onFinish: () => void;
   transactionId?: string;
 }
 
@@ -119,9 +119,14 @@ function Step1({
 }: Step1Props) {
   const { t } = useTranslation();
 
-  // Lookup inviter when referralCode is exactly 8 chars
-  const shouldLookup = referralCode.length === 8;
-  const { data: inviterData, isFetching: isLookingUp } = useGetInviterQuery(referralCode, {
+  const [debouncedCode, setDebouncedCode] = useState(referralCode);
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedCode(referralCode), 500);
+    return () => clearTimeout(id);
+  }, [referralCode]);
+
+  const shouldLookup = debouncedCode.trim().length >= 6;
+  const { data: inviterData, isFetching: isLookingUp } = useGetInviterQuery(debouncedCode.trim(), {
     skip: !shouldLookup,
   });
   const inviter = inviterData?.success ? inviterData.data : null;
@@ -405,43 +410,51 @@ function Step3({
 
 // ─── Step 4 — Payment ─────────────────────────────────────────────────────────
 
-function Step4({ onFinish, transactionId: initialTxId }: Step4Props) {
+function Step4({ transactionId: _initialTxId }: Step4Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [createQr, { isLoading: creatingQr }] = useCreateQrMutation();
-  const [checkPayment, { isLoading: checkingPayment }] = useCheckPaymentMutation();
-
-  const [qrCode, setQrCode] = useState('');
-  const [txId, setTxId] = useState(initialTxId ?? '');
+  const [createQr] = useCreateQrMutation();
   const [qrError, setQrError] = useState('');
-  const [paid, setPaid] = useState(false);
+  const [redirecting, setRedirecting] = useState(true);
+  const called = useRef(false);
 
   useEffect(() => {
+    if (called.current) return;
+    called.current = true;
+
     createQr(undefined)
       .unwrap()
       .then((res) => {
-        if (res?.data?.qrCode) setQrCode(res.data.qrCode);
-        if (res?.data?.transactionId) setTxId(res.data.transactionId);
+        const url = res?.data?.qrCode;
+        if (url) {
+          window.location.href = url;
+        } else {
+          setQrError('Не удалось получить ссылку для оплаты.');
+          setRedirecting(false);
+        }
       })
-      .catch(() => setQrError('Не удалось создать QR. Попробуйте позже.'));
+      .catch(() => {
+        setQrError('Не удалось создать платёж. Попробуйте позже.');
+        setRedirecting(false);
+      });
   }, []);
 
-  const handlePaid = async () => {
-    if (!txId) { onFinish(); return; }
-    try {
-      await checkPayment(txId).unwrap();
-      setPaid(true);
-      setTimeout(onFinish, 1500);
-    } catch (err: any) {
-      if (err?.data?.message?.toLowerCase().includes('not found') || err?.status === 404) {
-        onFinish();
-      } else {
-        setQrError(err?.data?.message ?? 'Платёж не подтверждён. Попробуйте позже.');
-      }
-    }
-  };
-
-  const qrSrc = qrCode.startsWith('http') ? qrCode : `data:image/png;base64,${qrCode}`;
+  if (redirecting && !qrError) {
+    return (
+      <div className="space-y-8 text-center">
+        <div className="text-center md:text-left">
+          <h2 className="text-2xl font-bold text-[#1A1A1A] mb-2">{t('auth.payment_title')}</h2>
+          <p className="text-sm font-medium text-[#9B9589]">{t('auth.payment_subtitle')}</p>
+        </div>
+        <div className="flex flex-col items-center gap-4 py-10">
+          <div className="w-10 h-10 rounded-full border-4 border-[#E5DDD0] border-t-[#1B2B20] animate-spin" />
+          <p className="text-[11px] font-bold text-[#9B9589] uppercase tracking-widest">
+            Переходим к оплате...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -450,66 +463,18 @@ function Step4({ onFinish, transactionId: initialTxId }: Step4Props) {
         <p className="text-sm font-medium text-[#9B9589]">{t('auth.payment_subtitle')}</p>
       </div>
 
-      <div className="bg-[#F8F5F0] border border-[#E5DDD0] rounded-3xl overflow-hidden">
-        <div className="p-5 flex justify-between items-center border-b border-[#E5DDD0]">
-          <span className="text-[10px] font-bold text-[#9B9589] uppercase tracking-widest">{t('auth.payment_type')}</span>
-          <span className="text-sm font-bold text-[#1A1A1A]">{t('auth.entry_fee')}</span>
-        </div>
-        <div className="p-5 flex justify-between items-center border-b border-[#E5DDD0]">
-          <span className="text-[10px] font-bold text-[#9B9589] uppercase tracking-widest">{t('auth.level')}</span>
-          <span className="text-sm font-bold text-[#1A1A1A]">1 · Incubator</span>
-        </div>
-        <div className="p-6 flex justify-between items-end bg-white">
-          <h4 className="text-2xl font-bold text-[#1A1A1A] tracking-tighter">{t('auth.to_pay')}</h4>
-          <div className="text-right">
-            <span className="text-3xl font-extrabold text-[#1B2B20] tracking-tight">10 000</span>
-            <span className="ml-1 text-sm font-bold text-[#9B9589] uppercase tracking-widest">{t('common.currency')}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white border border-[#E5DDD0] rounded-3xl p-6 shadow-xl shadow-black/5 flex flex-col md:flex-row items-center gap-6">
-        <div className="h-36 w-36 bg-[#F8F5F0] rounded-2xl flex items-center justify-center p-2 shrink-0">
-          {creatingQr ? (
-            <QrCode size={80} className="text-[#E5DDD0] animate-pulse" strokeWidth={1.5} />
-          ) : qrCode ? (
-            <img src={qrSrc} alt="QR" className="h-full w-full rounded-xl object-contain" />
-          ) : (
-            <QrCode size={80} className="text-[#1B2B20] opacity-70" strokeWidth={1.5} />
-          )}
-        </div>
-        <div className="flex-1 text-center md:text-left space-y-3">
-          <h4 className="font-bold text-[#1A1A1A]">{t('auth.scan_qr')}</h4>
-          <p className="text-[11px] font-medium text-[#9B9589] leading-relaxed">{t('auth.qr_hint')}</p>
-          {txId && (
-            <p className="text-[10px] font-bold text-[#9B9589] font-mono">ID: {txId}</p>
-          )}
-        </div>
-      </div>
-
-      {paid ? (
-        <div className="bg-[#EDF5F1] border border-[#4A7C5E]/20 rounded-2xl py-3 px-5 flex items-center justify-center gap-3">
-          <span className="text-[10px] font-bold text-[#4A7C5E] uppercase tracking-widest">✓ Платёж подтверждён! Переходим...</span>
-        </div>
-      ) : (
-        <div className="bg-[#FEF3EC] border border-[#E07840]/20 rounded-2xl py-3 px-5 flex items-center justify-center gap-3">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E07840] opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#E07840]" />
-          </span>
-          <p className="text-[10px] font-bold text-[#E07840] uppercase tracking-widest">{t('auth.waiting_finik')}</p>
-        </div>
-      )}
-
-      {qrError && <ErrorBox message={qrError} />}
+      <ErrorBox message={qrError} />
 
       <div className="space-y-4">
         <button
-          onClick={handlePaid}
-          disabled={checkingPayment || paid}
-          className="w-full h-14 bg-[#1B2B20] text-white rounded-2xl text-[13px] font-bold uppercase tracking-widest shadow-xl shadow-[#1B2B20]/20 hover:bg-[#2C4A3E] transition-all disabled:opacity-50"
+          onClick={() => {
+            called.current = false;
+            setQrError('');
+            setRedirecting(true);
+          }}
+          className="w-full h-14 bg-[#1B2B20] text-white rounded-2xl text-[13px] font-bold uppercase tracking-widest shadow-xl shadow-[#1B2B20]/20 hover:bg-[#2C4A3E] transition-all"
         >
-          {checkingPayment ? '...' : t('auth.i_paid')}
+          Попробовать снова
         </button>
         <button
           onClick={() => navigate('/login')}
@@ -526,7 +491,6 @@ function Step4({ onFinish, transactionId: initialTxId }: Step4Props) {
 
 export default function Register() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
 
   const [step, setStep] = useState(1);
   const [timer, setTimer] = useState(300);
@@ -548,6 +512,7 @@ export default function Register() {
   const [otp, setOtp] = useState<string[]>(['', '', '', '', '', '']);
 
   const [registerMutation, { isLoading: isRegistering }] = useRegisterMutation();
+  const [loginMutation] = useLoginMutation();
   const [sendOtpMutation, { isLoading: isSendingOtp }] = useSendOtpMutation();
   const [verifyOtpMutation, { isLoading: isVerifyingOtp }] = useVerifyOtpMutation();
 
@@ -563,8 +528,8 @@ export default function Register() {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const nextStep = () => {
-    setError('');
+  const nextStep = (preserveError = false) => {
+    if (!preserveError) setError('');
     setStep((p) => Math.min(p + 1, 4));
   };
 
@@ -592,18 +557,14 @@ export default function Register() {
       setError('Пароль должен содержать минимум 6 символов');
       return;
     }
+
+    // ── [ШАГ 1/5] Register ────────────────────────────────────────────────────
+    // Separate try-catch so an OTP failure doesn't look like a register failure.
     try {
-      // [ШАГ 1/5] Register — creates PENDING account
       const result = await registerMutation({
-        firstName,
-        lastName,
-        phone,
-        passportNumber,
-        password,
-        referralCode,
+        firstName, lastName, phone, passportNumber, password, referralCode,
       }).unwrap();
 
-      // Save tokens from register so subsequent API calls are authenticated
       if (result?.data?.accessToken) {
         localStorage.setItem('accessToken', result.data.accessToken);
         if (result.data.refreshToken) localStorage.setItem('refreshToken', result.data.refreshToken);
@@ -611,15 +572,49 @@ export default function Register() {
         if (result.data.transactionId) setTransactionId(result.data.transactionId);
         if (result.data.paymentId) setTransactionId(result.data.paymentId);
       }
+    } catch (regErr: any) {
+      const msg: string = regErr?.data?.message ?? '';
+      const alreadyExists =
+        msg.toLowerCase().includes('exist') ||
+        msg.toLowerCase().includes('already') ||
+        regErr?.status === 409;
 
-      // [ШАГ 2/5] Send OTP — must be called AFTER register
-      await sendOtpMutation(phone).unwrap();
-      setTimer(300);
-      setOtp(['', '', '', '', '', '']);
-      nextStep();
-    } catch (err: any) {
-      setError(err?.data?.message ?? 'Ошибка регистрации. Проверьте данные и попробуйте снова.');
+      if (!alreadyExists) {
+        // Hard register error (bad data, server error, etc.) — stop here.
+        setError(msg || 'Ошибка регистрации. Проверьте данные и попробуйте снова.');
+        return;
+      }
+
+      // User was created in a previous attempt but never confirmed OTP.
+      // Try a silent login to get a fresh token so we can re-send OTP.
+      try {
+        const loginResult = await loginMutation({ phone, password }).unwrap();
+        if (loginResult?.data?.accessToken) {
+          localStorage.setItem('accessToken', loginResult.data.accessToken);
+          if (loginResult.data.refreshToken) localStorage.setItem('refreshToken', loginResult.data.refreshToken);
+          if (loginResult.data.userId) localStorage.setItem('userId', loginResult.data.userId);
+        }
+      } catch {
+        // Login failed too — wrong password or fully confirmed account.
+        setError('Аккаунт с таким номером уже существует. Войдите через страницу входа.');
+        return;
+      }
     }
+
+    // ── [ШАГ 2/5] Send OTP ────────────────────────────────────────────────────
+    // Even if this fails we still advance so the user can hit "Resend".
+    let otpSent = false;
+    try {
+      await sendOtpMutation(phone).unwrap();
+      otpSent = true;
+    } catch {
+      // Will be shown as a resend prompt in Step 3.
+    }
+
+    setOtp(['', '', '', '', '', '']);
+    setTimer(otpSent ? 300 : 0); // timer=0 → resend button immediately available
+    setError(otpSent ? '' : 'SMS не удалось отправить. Нажмите «Отправить снова».');
+    nextStep(!otpSent); // preserve the OTP error message when advancing
   };
 
   // Step 3: verify OTP
@@ -735,7 +730,7 @@ export default function Register() {
                 formatTime={formatTime}
               />
             )}
-            {step === 4 && <Step4 onFinish={() => navigate('/login')} transactionId={transactionId} />}
+            {step === 4 && <Step4 transactionId={transactionId} />}
           </motion.div>
         </AnimatePresence>
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff, ShieldCheck, AlertCircle, QrCode, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, QrCode, ArrowLeft } from 'lucide-react';
 import AuthLayout from './AuthLayout';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 import { useLoginMutation } from '../../api/authApi';
@@ -213,20 +213,13 @@ export default function Login() {
             </div>
           )}
 
-          <div className="space-y-3 pt-2">
+          <div className="pt-2">
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-14 bg-[#1B2B20] text-white rounded-2xl text-[13px] font-bold uppercase tracking-widest shadow-xl shadow-[#1B2B20]/20 hover:bg-[#2C4A3E] hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+              className="w-full h-14 bg-[#1B2B20] text-white rounded-2xl text-[13px] font-bold uppercase tracking-widest shadow-xl shadow-[#1B2B20]/20 hover:bg-[#2C4A3E] hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center disabled:opacity-50"
             >
-              {isLoading ? '...' : t('auth.login_as_user')}
-            </button>
-            <button
-              type="button"
-              className="w-full h-14 bg-white border border-[#E5DDD0] text-[#1A1A1A] rounded-2xl text-[13px] font-bold uppercase tracking-widest hover:bg-[#F8F5F0] transition-all flex items-center justify-center gap-3"
-            >
-              <ShieldCheck size={18} className="text-[#9B9589]" />
-              {t('auth.login_as_admin')}
+              {isLoading ? '...' : t('common.login')}
             </button>
           </div>
         </form>
