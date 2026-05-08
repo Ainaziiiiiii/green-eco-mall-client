@@ -71,21 +71,23 @@ function TreeNodeCard({ node, pos, isRoot, rootName, rootLevel, rootStage }: {
   const empty = !node || node.status === 'EMPTY' || !node.userId
 
   if (isRoot) {
+    const name = node?.name ?? rootName ?? 'Вы'
+    const initials = node?.initials ?? (name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase())
     return (
-      <div className="rounded-xl p-3 shadow-md" style={{ width: 155, backgroundColor: '#1B2B20' }}>
-        <div className="mb-2">
+      <div className="rounded-xl p-3 shadow-md" style={{ width: 172, backgroundColor: '#1B2B20' }}>
+        <div className="mb-2.5">
           <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ backgroundColor: 'rgba(224,120,64,0.2)', color: '#E07840' }}>
             {t('dashboard.legend_you').toUpperCase()}
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-            style={{ backgroundColor: colorForInitials(node?.initials) }}>
-            {node?.initials ?? rootName?.[0] ?? '?'}
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+            style={{ backgroundColor: colorForInitials(initials) }}>
+            {initials}
           </div>
-          <div>
-            <p className="text-sm font-semibold text-white">{node?.name ?? rootName ?? 'Вы'}</p>
-            <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.45)' }}>
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-bold text-white leading-tight line-clamp-2 wrap-break-word">{name}</p>
+            <p className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
               {t('common.level')} {rootLevel ?? 1} · {t('common.step')} {rootStage ?? 1}
             </p>
           </div>
@@ -96,7 +98,7 @@ function TreeNodeCard({ node, pos, isRoot, rootName, rootLevel, rootStage }: {
 
   if (empty) {
     return (
-      <div className="rounded-xl border border-dashed border-[#D4CFC4] bg-[#F8F5F0] p-3" style={{ width: 138 }}>
+      <div className="rounded-xl border border-dashed border-[#D4CFC4] bg-[#F8F5F0] p-3" style={{ width: 148 }}>
         <div className="mb-2">
           <span className="rounded bg-[#E5DDD0] px-1.5 py-0.5 text-[9px] font-bold text-[#9B9589]">Поз. {pos}</span>
         </div>
@@ -109,7 +111,7 @@ function TreeNodeCard({ node, pos, isRoot, rootName, rootLevel, rootStage }: {
   }
 
   return (
-    <div className="rounded-xl border bg-white p-3 shadow-sm" style={{ width: 138, borderColor: '#E5DDD0' }}>
+    <div className="rounded-xl border bg-white p-3 shadow-sm" style={{ width: 148, borderColor: '#E5DDD0' }}>
       <div className="mb-2">
         <span className="rounded bg-[#1A1A1A] px-1.5 py-0.5 text-[9px] font-bold text-white">Поз. {pos}</span>
       </div>
@@ -118,15 +120,14 @@ function TreeNodeCard({ node, pos, isRoot, rootName, rootLevel, rootStage }: {
           style={{ backgroundColor: colorForInitials(node.initials) }}>
           {node.initials ?? '?'}
         </div>
-        <div>
-          <p className="text-xs font-semibold text-[#1A1A1A]">{node.name ?? 'Участник'}</p>
-          <p className="text-[10px] text-[#9B9589]">
-            {node.currentLevel ? `Ур. ${node.currentLevel} · Эт. ${node.currentStage ?? 1}` : '—'} ·{' '}
-            {node.joinedAt ? new Date(node.joinedAt).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) : '—'}
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-semibold text-[#1A1A1A] leading-tight line-clamp-2 wrap-break-word">{node.name ?? 'Участник'}</p>
+          <p className="text-[9px] text-[#9B9589] mt-0.5">
+            {node.currentLevel ? `Ур.${node.currentLevel} · Эт.${node.currentStage ?? 1}` : ''}
           </p>
         </div>
       </div>
-      <NodeStatusBadge status={nodeStatus(node.status)} />
+      <NodeStatusBadge status={nodeStatus(node.status ?? 'IN_PROGRESS')} />
     </div>
   )
 }
@@ -164,6 +165,15 @@ function TreeVerticalItem({ node, pos, isRoot, isLast, children, rootName, rootL
       {children && <div className="ml-10 space-y-1">{children}</div>}
     </div>
   )
+}
+
+function flattenChildren(children: any[]): any[] {
+  const result: any[] = []
+  for (const child of children ?? []) {
+    result.push(child)
+    if (child.children?.length) result.push(...flattenChildren(child.children))
+  }
+  return result
 }
 
 function OrgTree({ nodes, filled, total, rootUser, currentLevel, currentStage }: {
@@ -205,22 +215,22 @@ function OrgTree({ nodes, filled, total, rootUser, currentLevel, currentStage }:
             <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10 transition-transform hover:scale-105 duration-300">
               <TreeNodeCard node={rootUser} pos={0} isRoot rootName={rootUser?.name} rootLevel={currentLevel} rootStage={currentStage} />
             </div>
-            <div className="absolute top-[140px] left-[90px] z-10 transition-transform hover:scale-105 duration-300">
+            <div className="absolute top-[140px] left-21.5 z-10 transition-transform hover:scale-105 duration-300">
               <TreeNodeCard node={byPos(1)} pos={1} />
             </div>
-            <div className="absolute top-[140px] left-[410px] z-10 transition-transform hover:scale-105 duration-300">
+            <div className="absolute top-[140px] left-101.5 z-10 transition-transform hover:scale-105 duration-300">
               <TreeNodeCard node={byPos(2)} pos={2} />
             </div>
-            <div className="absolute top-[260px] left-[10px] z-10 transition-transform hover:scale-105 duration-300">
+            <div className="absolute top-67.5 left-1.5 z-10 transition-transform hover:scale-105 duration-300">
               <TreeNodeCard node={byPos(3)} pos={3} />
             </div>
-            <div className="absolute top-[260px] left-[170px] z-10 transition-transform hover:scale-105 duration-300">
+            <div className="absolute top-67.5 left-41.5 z-10 transition-transform hover:scale-105 duration-300">
               <TreeNodeCard node={byPos(4)} pos={4} />
             </div>
-            <div className="absolute top-[260px] left-[330px] z-10 transition-transform hover:scale-105 duration-300">
+            <div className="absolute top-67.5 left-81.5 z-10 transition-transform hover:scale-105 duration-300">
               <TreeNodeCard node={byPos(5)} pos={5} />
             </div>
-            <div className="absolute top-[260px] left-[490px] z-10 transition-transform hover:scale-105 duration-300">
+            <div className="absolute top-67.5 left-121.5 z-10 transition-transform hover:scale-105 duration-300">
               <TreeNodeCard node={byPos(6)} pos={6} />
             </div>
           </div>
@@ -346,9 +356,11 @@ export default function DashboardPage() {
   )
   const { data: levelsData } = useGetLevelsOverviewQuery(undefined)
 
-  const rawTreeNodes = treeData?.data?.nodes ?? treeData?.data?.members ?? treeData?.data
-  const treeNodes: any[] = Array.isArray(rawTreeNodes) ? rawTreeNodes : []
-  const rootUser = treeData?.data?.root ?? treeData?.data?.rootUser ?? null
+  // API returns nested tree: root → children → children
+  // Flatten recursively into a flat array so byPos(n) works
+  const rootUser = treeData?.data?.root ?? null
+  const treeNodes: any[] = flattenChildren(rootUser?.children ?? [])
+  const treeProgress = treeData?.data?.progress
 
   const allLevels: any[] = levelsData?.data?.levels ?? []
   const currentLevelData = allLevels.find((l) => l.level === data?.currentLevel) ?? allLevels[0]
@@ -443,9 +455,9 @@ export default function DashboardPage() {
                 <h3 className="font-bold text-[#1A1A1A] text-lg">{t('dashboard.tree_title')}</h3>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-[#9B9589] bg-[#F8F5F0] px-2 py-0.5 rounded">
-                    {data?.treeSummary?.filled ?? 0} / {data?.treeSummary?.total ?? 6} {t('dashboard.filled')}
+                    {treeProgress?.filled ?? data?.treeSummary?.filled ?? 0} / {treeProgress?.total ?? data?.treeSummary?.total ?? 6} {t('dashboard.filled')}
                   </span>
-                  {data?.treeSummary?.filled === data?.treeSummary?.total && data?.treeSummary?.total > 0 && (
+                  {(treeProgress?.filled ?? data?.treeSummary?.filled) === (treeProgress?.total ?? data?.treeSummary?.total) && (treeProgress?.total ?? data?.treeSummary?.total ?? 0) > 0 && (
                     <span className="rounded-full bg-[#EDF5F1] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#4A7C5E]">
                       ● {t('dashboard.stage_completed')}
                     </span>
@@ -459,8 +471,8 @@ export default function DashboardPage() {
 
             <OrgTree
               nodes={treeNodes}
-              filled={data?.treeSummary?.filled ?? 0}
-              total={data?.treeSummary?.total ?? 6}
+              filled={treeProgress?.filled ?? data?.treeSummary?.filled ?? 0}
+              total={treeProgress?.total ?? data?.treeSummary?.total ?? 6}
               rootUser={rootUser}
               currentLevel={data?.currentLevel}
               currentStage={data?.currentStage}
