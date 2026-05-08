@@ -43,9 +43,9 @@ export function CabinetLayout({ children, title }: CabinetLayoutProps) {
     { name: t('common.dashboard'), icon: Home, section: 'КАБИНЕТ', path: '/' },
     { name: t('common.tree'), icon: Share2, section: 'КАБИНЕТ', path: '/tree' },
     { name: t('common.levels'), icon: Layers, section: 'КАБИНЕТ', path: '/levels' },
-    { name: 'Бонусы', icon: BarChart3, section: 'КАБИНЕТ', path: '/bonuses', badge: '2' },
+    { name: 'Бонусы', icon: BarChart3, section: 'КАБИНЕТ', path: '/bonuses' },
     { name: t('common.withdraw'), icon: Wallet, section: 'КАБИНЕТ', path: '/withdraw' },
-    { name: t('common.notifications'), icon: Bell, section: 'АККАУНТ', path: '/notifications', badge: '3' },
+    { name: t('common.notifications'), icon: Bell, section: 'АККАУНТ', path: '/notifications' },
     { name: t('common.profile'), icon: UserIcon, section: 'АККАУНТ', path: '/profile' },
   ];
 
@@ -180,11 +180,6 @@ export function CabinetLayout({ children, title }: CabinetLayoutProps) {
           </div>
 
           <div className="flex items-center gap-2 md:gap-3">
-            <div className="hidden sm:flex items-center p-1 bg-[#E8E2D2] rounded-xl">
-              <button className="px-4 py-1.5 rounded-lg bg-[#1A1A1A] text-white text-[11px] font-bold">USER</button>
-              <button className="px-4 py-1.5 rounded-lg text-[#1A1A1A]/40 text-[11px] font-bold hover:text-[#1A1A1A] transition-colors">ADMIN</button>
-            </div>
-            
             <div className="flex items-center gap-1.5 md:gap-2">
               <LanguageSwitcher />
               <button className="w-9 h-9 md:w-10 md:h-10 rounded-xl border border-[#E5DDD0] bg-white flex items-center justify-center text-[#1A1A1A]/60 hover:bg-[#F8F5F0] transition-all">
