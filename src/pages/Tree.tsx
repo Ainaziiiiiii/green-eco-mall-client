@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Zap } from 'lucide-react'
 import { CabinetLayout } from '#widgets/CabinetLayout'
 import { useTranslation } from 'react-i18next'
@@ -6,15 +6,6 @@ import { useGetMyTreeQuery, useGetTreeBranchesQuery } from '../api/treeApi'
 import { useGetDashboardQuery } from '../api/dashboardApi'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function flattenChildren(children: any[]): any[] {
-  const result: any[] = []
-  for (const child of children ?? []) {
-    result.push(child)
-    if (child.children?.length) result.push(...flattenChildren(child.children))
-  }
-  return result
-}
 
 function colorForInitials(initials?: string) {
   const COLORS = ['#2C4A3E', '#3A7C8E', '#7C6A3A', '#3A5C8E', '#2A2A2A', '#8E7A3A', '#3A8E6A', '#7C3A3A', '#5E3A7C']
@@ -27,6 +18,23 @@ function colorForInitials(initials?: string) {
 function getInitials(name?: string) {
   if (!name) return '??'
   return name.split(' ').filter(Boolean).map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
+}
+
+// Extract global positions 1-6 directly from nested tree structure:
+// root.children[0] = pos1, root.children[1] = pos2
+// pos1.children[0] = pos3, pos1.children[1] = pos4
+// pos2.children[0] = pos5, pos2.children[1] = pos6
+function extractPositions(root: any) {
+  const p1 = root?.children?.[0] ?? null
+  const p2 = root?.children?.[1] ?? null
+  return {
+    1: p1,
+    2: p2,
+    3: p1?.children?.[0] ?? null,
+    4: p1?.children?.[1] ?? null,
+    5: p2?.children?.[0] ?? null,
+    6: p2?.children?.[1] ?? null,
+  } as Record<number, any>
 }
 
 // ─── Cards ────────────────────────────────────────────────────────────────────
@@ -142,16 +150,14 @@ function MemberCard({ node, pos }: { node?: any; pos: number }) {
   )
 }
 
-// ─── Tree canvas (640 × 360 fixed, same layout as Dashboard) ─────────────────
+// ─── Tree canvas (640 × 360 fixed) ───────────────────────────────────────────
 
 const CANVAS_W = 640
 const CANVAS_H = 360
 
-function TreeCanvas({ nodes, rootNode, level, stage }: {
-  nodes: any[]; rootNode?: any; level: number; stage: number
+function TreeCanvas({ positions, rootNode, level, stage }: {
+  positions: Record<number, any>; rootNode?: any; level: number; stage: number
 }) {
-  const byPos = (pos: number) => nodes.find((n) => n.treePosition === pos || n.position === pos)
-
   return (
     <div className="relative mx-auto" style={{ width: CANVAS_W, height: CANVAS_H }}>
       <svg className="pointer-events-none absolute inset-0" width={CANVAS_W} height={CANVAS_H}>
@@ -165,44 +171,77 @@ function TreeCanvas({ nodes, rootNode, level, stage }: {
         </g>
       </svg>
 
-      {/* Root */}
       <div className="absolute z-10 transition-transform hover:scale-105 duration-200"
         style={{ top: 0, left: 320 - ROOT_W / 2 }}>
         <RootCard node={rootNode} level={level} stage={stage} />
       </div>
 
-      {/* Level 1 */}
       <div className="absolute z-10 transition-transform hover:scale-105 duration-200"
         style={{ top: 140, left: 160 - CARD_W / 2 }}>
-        <MemberCard node={byPos(1)} pos={1} />
+        <MemberCard node={positions[1]} pos={1} />
       </div>
       <div className="absolute z-10 transition-transform hover:scale-105 duration-200"
         style={{ top: 140, left: 480 - CARD_W / 2 }}>
-        <MemberCard node={byPos(2)} pos={2} />
+        <MemberCard node={positions[2]} pos={2} />
       </div>
 
-      {/* Level 2 */}
       <div className="absolute z-10 transition-transform hover:scale-105 duration-200"
         style={{ top: 270, left: 80 - CARD_W / 2 }}>
-        <MemberCard node={byPos(3)} pos={3} />
+        <MemberCard node={positions[3]} pos={3} />
       </div>
       <div className="absolute z-10 transition-transform hover:scale-105 duration-200"
         style={{ top: 270, left: 240 - CARD_W / 2 }}>
-        <MemberCard node={byPos(4)} pos={4} />
+        <MemberCard node={positions[4]} pos={4} />
       </div>
       <div className="absolute z-10 transition-transform hover:scale-105 duration-200"
         style={{ top: 270, left: 400 - CARD_W / 2 }}>
-        <MemberCard node={byPos(5)} pos={5} />
+        <MemberCard node={positions[5]} pos={5} />
       </div>
       <div className="absolute z-10 transition-transform hover:scale-105 duration-200"
         style={{ top: 270, left: 560 - CARD_W / 2 }}>
-        <MemberCard node={byPos(6)} pos={6} />
+        <MemberCard node={positions[6]} pos={6} />
       </div>
     </div>
   )
 }
 
-// ─── Mobile vertical list ─────────────────────────────────────────────────────
+// ─── Segmented selector ───────────────────────────────────────────────────────
+
+function SegmentedSelector({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string
+  value: number
+  options: number[]
+  onChange: (v: number) => void
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] font-bold text-[#9B9589] uppercase tracking-widest shrink-0">{label}</span>
+      <div className="flex items-center p-1 bg-[#F0EBE0] rounded-xl gap-0.5">
+        {options.map((opt) => (
+          <button
+            key={opt}
+            onClick={() => onChange(opt)}
+            className="w-8 h-7 rounded-lg text-[11px] font-bold transition-all"
+            style={
+              value === opt
+                ? { backgroundColor: '#1B2B20', color: 'white' }
+                : { color: 'rgba(26,26,26,0.4)' }
+            }
+          >
+            {opt}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Mobile node ──────────────────────────────────────────────────────────────
 
 function MobileNode({ node, pos, children }: { node?: any; pos: number; children?: React.ReactNode }) {
   const empty = !node || !node.userId
@@ -248,52 +287,60 @@ function BranchStatCard({ title, value, sub }: { title: string; value: string; s
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
+const LEVEL_OPTIONS = [1, 2, 3, 4]
+const STAGE_OPTIONS = [1, 2, 3, 4]
+
 export default function TreePage() {
   const { t } = useTranslation()
   const { data: dashData } = useGetDashboardQuery(undefined)
-  const currentLevel = dashData?.data?.currentLevel ?? 1
-  const currentStage = dashData?.data?.currentStage ?? 1
 
-  const { data: treeData, isLoading } = useGetMyTreeQuery({ level: currentLevel, stage: currentStage })
+  const [selectedLevel, setSelectedLevel] = useState<number | null>(null)
+  const [selectedStage, setSelectedStage] = useState<number | null>(null)
+
+  const currentLevel = selectedLevel ?? dashData?.data?.currentLevel ?? 1
+  const currentStage = selectedStage ?? dashData?.data?.currentStage ?? 1
+
+  const { data: treeData, isLoading, isFetching } = useGetMyTreeQuery(
+    { level: currentLevel, stage: currentStage },
+  )
   const { data: branchesData } = useGetTreeBranchesQuery(undefined)
 
   const tree = treeData?.data
   const rootNode = tree?.root ?? null
-  const nodes: any[] = flattenChildren(rootNode?.children ?? [])
+  const positions = extractPositions(rootNode)
   const branches = branchesData?.data
 
   const progress = tree?.progress
-  const filled: number = progress?.filled ?? nodes.filter((n) => n.userId).length
+  const filled: number = progress?.filled ?? 0
   const total: number = progress?.total ?? 6
-
-  if (isLoading) {
-    return (
-      <CabinetLayout title={t('dashboard.tree_title')}>
-        <div className="flex items-center justify-center h-64">
-          <p className="text-[#9B9589] font-bold animate-pulse uppercase tracking-widest">ЗАГРУЗКА...</p>
-        </div>
-      </CabinetLayout>
-    )
-  }
 
   return (
     <CabinetLayout title={t('dashboard.tree_title')}>
       <div className="space-y-6">
 
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
             <h2 className="text-2xl md:text-3xl font-bold text-[#1A1A1A]">{t('dashboard.tree_title')}</h2>
             <p className="text-xs md:text-sm text-[#9B9589] mt-1.5 leading-relaxed">
               Дерево из 6 позиций — {t('common.level')} {currentLevel}, {t('common.step')} {currentStage}
             </p>
           </div>
-          <div className="flex self-start sm:self-auto items-center gap-2 px-4 py-2 bg-white border border-[#E5DDD0] rounded-xl shadow-sm">
-            <span className="text-[10px] font-bold text-[#9B9589] uppercase tracking-widest">{t('common.level')}</span>
-            <span className="text-sm font-bold text-[#1A1A1A]">{currentLevel}</span>
-            <span className="text-[#D4CFC4]">·</span>
-            <span className="text-[10px] font-bold text-[#9B9589] uppercase tracking-widest">{t('common.step')}</span>
-            <span className="text-sm font-bold text-[#1A1A1A]">{currentStage}</span>
+
+          {/* Level / Stage selectors */}
+          <div className="flex flex-wrap items-center gap-3 self-start sm:self-auto">
+            <SegmentedSelector
+              label={t('common.level')}
+              value={currentLevel}
+              options={LEVEL_OPTIONS}
+              onChange={(v) => { setSelectedLevel(v); setSelectedStage(1) }}
+            />
+            <SegmentedSelector
+              label={t('common.step')}
+              value={currentStage}
+              options={STAGE_OPTIONS}
+              onChange={setSelectedStage}
+            />
           </div>
         </div>
 
@@ -328,11 +375,20 @@ export default function TreePage() {
             </div>
           </div>
 
-          {!rootNode && (
-            <p className="text-center text-[#9B9589] py-12 font-medium">Нет данных дерева</p>
+          {/* Loading overlay */}
+          {(isLoading || isFetching) && (
+            <div className="flex items-center justify-center py-16">
+              <p className="text-[#9B9589] font-bold animate-pulse uppercase tracking-widest text-sm">
+                ЗАГРУЗКА...
+              </p>
+            </div>
           )}
 
-          {rootNode && (
+          {!isLoading && !isFetching && !rootNode && (
+            <p className="text-center text-[#9B9589] py-12 font-medium">Нет данных для этого уровня и этапа</p>
+          )}
+
+          {!isLoading && !isFetching && rootNode && (
             <>
               {/* Mobile: vertical list */}
               <div className="md:hidden bg-[#F8F5F0] rounded-2xl p-5">
@@ -347,24 +403,26 @@ export default function TreePage() {
                   </div>
                 </div>
                 <div className="ml-5 border-l border-dashed border-[#D4CFC4] pl-5 space-y-1">
-                  {[1, 2].map((pos) => {
-                    const n = nodes.find((x) => (x.treePosition ?? x.position) === pos)
-                    return (
-                      <MobileNode key={pos} node={n} pos={pos}>
-                        {[pos === 1 ? 3 : 5, pos === 1 ? 4 : 6].map((subPos) => {
-                          const sub = nodes.find((x) => (x.treePosition ?? x.position) === subPos)
-                          return <MobileNode key={subPos} node={sub} pos={subPos} />
-                        })}
-                      </MobileNode>
-                    )
-                  })}
+                  <MobileNode node={positions[1]} pos={1}>
+                    <MobileNode node={positions[3]} pos={3} />
+                    <MobileNode node={positions[4]} pos={4} />
+                  </MobileNode>
+                  <MobileNode node={positions[2]} pos={2}>
+                    <MobileNode node={positions[5]} pos={5} />
+                    <MobileNode node={positions[6]} pos={6} />
+                  </MobileNode>
                 </div>
               </div>
 
               {/* Desktop: fixed canvas */}
               <div className="hidden md:block bg-[#F8F5F0] rounded-2xl overflow-x-auto">
                 <div className="py-6 px-4 flex justify-center">
-                  <TreeCanvas nodes={nodes} rootNode={rootNode} level={currentLevel} stage={currentStage} />
+                  <TreeCanvas
+                    positions={positions}
+                    rootNode={rootNode}
+                    level={currentLevel}
+                    stage={currentStage}
+                  />
                 </div>
               </div>
             </>
