@@ -95,11 +95,6 @@ export function CabinetLayout({ children, title }: CabinetLayoutProps) {
                 >
                   <item.icon size={18} strokeWidth={2} />
                   <span className="flex-1 text-left">{item.name}</span>
-                  {item.badge && (
-                    <span className="w-5 h-5 rounded-full bg-[#E07840] text-[10px] font-bold flex items-center justify-center text-white">
-                      {item.badge}
-                    </span>
-                  )}
                 </Link>
               ))}
             </div>
@@ -120,11 +115,6 @@ export function CabinetLayout({ children, title }: CabinetLayoutProps) {
                 >
                   <item.icon size={18} strokeWidth={2} />
                   <span className="flex-1 text-left">{item.name}</span>
-                  {item.badge && (
-                    <span className="w-5 h-5 rounded-full bg-[#E07840] text-[10px] font-bold flex items-center justify-center text-white">
-                      {item.badge}
-                    </span>
-                  )}
                 </Link>
               ))}
             </div>

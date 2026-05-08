@@ -20,27 +20,88 @@ function getInitials(name?: string) {
   return name.split(' ').filter(Boolean).map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
 }
 
-// Extract global positions 1-6 directly from nested tree structure:
-// root.children[0] = pos1, root.children[1] = pos2
-// pos1.children[0] = pos3, pos1.children[1] = pos4
-// pos2.children[0] = pos5, pos2.children[1] = pos6
-function extractPositions(root: any) {
-  const p1 = root?.children?.[0] ?? null
-  const p2 = root?.children?.[1] ?? null
-  return {
-    1: p1,
-    2: p2,
-    3: p1?.children?.[0] ?? null,
-    4: p1?.children?.[1] ?? null,
-    5: p2?.children?.[0] ?? null,
-    6: p2?.children?.[1] ?? null,
-  } as Record<number, any>
+// ─── Layout engine ────────────────────────────────────────────────────────────
+// Places nodes on a canvas by counting leaf nodes per subtree.
+// Each leaf occupies H_UNIT px. Internal nodes are centered over their children.
+// Global position: root=0, root's children=1,2, their children=3-6, etc. (binary tree numbering)
+
+const CARD_W = 138
+const ROOT_W = 165
+const CARD_H = 82
+const H_UNIT = 152   // CARD_W + gap between cards
+const V_STEP = 134   // vertical distance between level tops
+const PAD = 24
+
+interface LayoutNode {
+  node: any
+  cx: number    // horizontal center
+  y: number     // top edge
+  depth: number
+  gPos: number  // global position (0 = root)
+}
+
+interface Edge { x1: number; y1: number; x2: number; y2: number }
+
+function leafCount(node: any): number {
+  if (!node?.children?.length) return 1
+  return (node.children as any[]).reduce((s: number, c: any) => s + leafCount(c), 0)
+}
+
+function treeDepth(node: any): number {
+  if (!node?.children?.length) return 0
+  return 1 + Math.max(...(node.children as any[]).map(treeDepth))
+}
+
+function buildLayout(root: any): { nodes: LayoutNode[]; canvasW: number; canvasH: number } {
+  const lc = leafCount(root)
+  const depth = treeDepth(root)
+  const canvasW = Math.max(PAD * 2 + lc * H_UNIT - (H_UNIT - CARD_W), ROOT_W + PAD * 2)
+  const canvasH = PAD * 2 + depth * V_STEP + CARD_H
+  const nodes: LayoutNode[] = []
+
+  function walk(node: any, leftLeaf: number, d: number, gPos: number) {
+    const lc = leafCount(node)
+    // Center x = left edge + half the occupied width (including all gaps between leaves)
+    const cx = PAD + leftLeaf * H_UNIT + (lc * H_UNIT - (H_UNIT - CARD_W)) / 2
+    const y = PAD + d * V_STEP
+    nodes.push({ node, cx, y, depth: d, gPos })
+    if (node?.children?.length) {
+      let cl = leftLeaf
+      ;(node.children as any[]).forEach((child: any, i: number) => {
+        // Standard binary tree numbering: left=2g+1, right=2g+2 (g=0 for root)
+        walk(child, cl, d + 1, gPos === 0 ? i + 1 : gPos * 2 + i + 1)
+        cl += leafCount(child)
+      })
+    }
+  }
+
+  walk(root, 0, 0, 0)
+  return { nodes, canvasW, canvasH }
+}
+
+function buildEdges(nodes: LayoutNode[]): Edge[] {
+  const map = new Map<any, LayoutNode>()
+  nodes.forEach(n => map.set(n.node, n))
+  return nodes.flatMap(({ node, cx, y }) => {
+    if (!node?.children?.length) return []
+    return (node.children as any[]).map((child: any) => {
+      const c = map.get(child)!
+      return { x1: cx, y1: y + CARD_H, x2: c.cx, y2: c.y }
+    })
+  })
 }
 
 // ─── Cards ────────────────────────────────────────────────────────────────────
 
-const ROOT_W = 172
-const CARD_W = 148
+function StatusBadge({ status }: { status?: string }) {
+  if (status === 'COMPLETED')
+    return <span className="inline-block rounded-full px-1.5 py-0.5 text-[8px] font-bold border"
+      style={{ borderColor: '#4A7C5E', color: '#4A7C5E' }}>● ЗАВЕРШЁН</span>
+  if (['IN_PROGRESS', 'ACTIVE', 'PENDING'].includes(status ?? ''))
+    return <span className="inline-block rounded-full px-1.5 py-0.5 text-[8px] font-bold border"
+      style={{ borderColor: '#E07840', color: '#E07840' }}>● АКТИВНЫЙ</span>
+  return null
+}
 
 function RootCard({ node, level, stage }: { node: any; level: number; stage: number }) {
   const { t } = useTranslation()
@@ -54,14 +115,14 @@ function RootCard({ node, level, stage }: { node: any; level: number; stage: num
           {t('dashboard.legend_you').toUpperCase()} · ROOT
         </span>
       </div>
-      <div className="flex items-center gap-2.5">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+      <div className="flex items-center gap-2">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
           style={{ backgroundColor: colorForInitials(initials) }}>
           {initials}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-bold text-white leading-tight line-clamp-2">{name}</p>
-          <p className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
+          <p className="text-[12px] font-bold text-white leading-tight line-clamp-2">{name}</p>
+          <p className="text-[9px] mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
             {t('common.level')} {level} · {t('common.step')} {stage}
           </p>
         </div>
@@ -70,53 +131,22 @@ function RootCard({ node, level, stage }: { node: any; level: number; stage: num
   )
 }
 
-function StatusBadge({ status }: { status?: string }) {
-  if (status === 'COMPLETED')
-    return <span className="inline-block rounded-full px-2 py-0.5 text-[9px] font-semibold border"
-      style={{ borderColor: '#4A7C5E', color: '#4A7C5E' }}>● ЗАВЕРШЁН</span>
-  if (status === 'IN_PROGRESS' || status === 'ACTIVE' || status === 'PENDING')
-    return <span className="inline-block rounded-full px-2 py-0.5 text-[9px] font-semibold border"
-      style={{ borderColor: '#E07840', color: '#E07840' }}>● АКТИВНЫЙ</span>
-  return <span className="inline-block rounded-full px-2 py-0.5 text-[9px] font-semibold border"
-    style={{ borderColor: '#C4BFB8', color: '#9B9589' }}>● ОЖИДАНИЕ</span>
-}
-
-function MemberCard({ node, pos }: { node?: any; pos: number }) {
+function MemberCard({ node, gPos }: { node: any; gPos: number }) {
   if (node?.isAccelerator) {
     return (
-      <div className="rounded-xl border-2 border-dashed p-3"
-        style={{ width: CARD_W, borderColor: 'rgba(224,120,64,0.4)', backgroundColor: 'rgba(254,243,236,0.5)' }}>
-        <div className="mb-2">
-          <span className="rounded px-1.5 py-0.5 text-[9px] font-bold text-white"
-            style={{ backgroundColor: '#E07840' }}>Поз. {pos}</span>
+      <div className="rounded-xl border-2 border-dashed p-2.5"
+        style={{ width: CARD_W, borderColor: 'rgba(224,120,64,0.5)', backgroundColor: 'rgba(254,243,236,0.6)' }}>
+        <div className="mb-1.5 flex items-center justify-between gap-1">
+          <span className="rounded px-1 py-0.5 text-[8px] font-bold text-white"
+            style={{ backgroundColor: '#E07840' }}>Поз. {gPos}</span>
+          <span className="text-[8px] font-bold" style={{ color: '#E07840' }}>УСКОР.</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border bg-white"
-            style={{ borderColor: 'rgba(224,120,64,0.3)', color: '#E07840' }}>
-            <Zap size={14} fill="currentColor" />
+            style={{ borderColor: 'rgba(224,120,64,0.4)', color: '#E07840' }}>
+            <Zap size={13} fill="currentColor" />
           </div>
-          <div>
-            <p className="text-[11px] font-bold" style={{ color: '#E07840' }}>Ускоритель</p>
-            <p className="text-[9px]" style={{ color: 'rgba(224,120,64,0.6)' }}>виртуальный</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  const empty = !node || !node.userId
-  if (empty) {
-    return (
-      <div className="rounded-xl border border-dashed p-3"
-        style={{ width: CARD_W, borderColor: '#D4CFC4', backgroundColor: '#F8F5F0' }}>
-        <div className="mb-2">
-          <span className="rounded px-1.5 py-0.5 text-[9px] font-bold"
-            style={{ backgroundColor: '#E5DDD0', color: '#9B9589' }}>Поз. {pos}</span>
-        </div>
-        <div className="flex items-center gap-2" style={{ opacity: 0.4 }}>
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
-            style={{ backgroundColor: '#D4CFC4' }}>—</div>
-          <p className="text-xs font-semibold" style={{ color: '#9B9589' }}>Свободно</p>
+          <p className="text-[11px] font-bold" style={{ color: '#E07840' }}>Ускоритель</p>
         </div>
       </div>
     )
@@ -124,115 +154,151 @@ function MemberCard({ node, pos }: { node?: any; pos: number }) {
 
   const initials = node.initials ?? getInitials(node.name)
   return (
-    <div className="rounded-xl border bg-white p-3 shadow-sm" style={{ width: CARD_W, borderColor: '#E5DDD0' }}>
-      <div className="mb-2">
-        <span className="rounded px-1.5 py-0.5 text-[9px] font-bold text-white"
-          style={{ backgroundColor: '#1A1A1A' }}>Поз. {pos}</span>
+    <div className="rounded-xl border bg-white p-2.5 shadow-sm" style={{ width: CARD_W, borderColor: '#E5DDD0' }}>
+      <div className="mb-1.5 flex items-center justify-between gap-1">
+        <span className="rounded px-1 py-0.5 text-[8px] font-bold text-white"
+          style={{ backgroundColor: '#1A1A1A' }}>Поз. {gPos}</span>
+        <StatusBadge status={node.stageStatus ?? node.status} />
       </div>
-      <div className="mb-2 flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
           style={{ backgroundColor: colorForInitials(initials) }}>
           {initials}
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold leading-tight line-clamp-2" style={{ color: '#1A1A1A' }}>
-            {node.name ?? 'Участник'}
-          </p>
-          {(node.currentLevel || node.level) && (
-            <p className="text-[9px] mt-0.5" style={{ color: '#9B9589' }}>
-              Ур.{node.currentLevel ?? node.level} · Эт.{node.currentStage ?? node.stage ?? 1}
-            </p>
-          )}
-        </div>
+        <p className="text-[11px] font-semibold leading-tight line-clamp-2 min-w-0 flex-1" style={{ color: '#1A1A1A' }}>
+          {node.name ?? 'Участник'}
+        </p>
       </div>
-      <StatusBadge status={node.stageStatus ?? node.status} />
     </div>
   )
 }
 
-// ─── Tree canvas (640 × 360 fixed) ───────────────────────────────────────────
+// ─── Tree canvas ──────────────────────────────────────────────────────────────
 
-const CANVAS_W = 640
-const CANVAS_H = 360
+function TreeCanvas({ rootNode, level, stage }: { rootNode: any; level: number; stage: number }) {
+  const { nodes, canvasW, canvasH } = buildLayout(rootNode)
+  const edges = buildEdges(nodes)
 
-function TreeCanvas({ positions, rootNode, level, stage }: {
-  positions: Record<number, any>; rootNode?: any; level: number; stage: number
-}) {
   return (
-    <div className="relative mx-auto" style={{ width: CANVAS_W, height: CANVAS_H }}>
-      <svg className="pointer-events-none absolute inset-0" width={CANVAS_W} height={CANVAS_H}>
-        <g stroke="#D4CFC4" strokeWidth={1.5} strokeDasharray="4 4" fill="none" opacity="0.6">
-          <path d="M 320 80 L 160 140" />
-          <path d="M 320 80 L 480 140" />
-          <path d="M 160 215 L 80 260" />
-          <path d="M 160 215 L 240 260" />
-          <path d="M 480 215 L 400 260" />
-          <path d="M 480 215 L 560 260" />
-        </g>
+    <div className="relative" style={{ width: canvasW, height: canvasH }}>
+      <svg className="pointer-events-none absolute inset-0" width={canvasW} height={canvasH}>
+        {edges.map((e, i) => {
+          const midY = (e.y1 + e.y2) / 2
+          return (
+            <path key={i}
+              d={`M ${e.x1} ${e.y1} C ${e.x1} ${midY}, ${e.x2} ${midY}, ${e.x2} ${e.y2}`}
+              stroke="#D4CFC4" strokeWidth={1.5} strokeDasharray="4 4" fill="none" opacity="0.7"
+            />
+          )
+        })}
       </svg>
 
-      <div className="absolute z-10 transition-transform hover:scale-105 duration-200"
-        style={{ top: 0, left: 320 - ROOT_W / 2 }}>
-        <RootCard node={rootNode} level={level} stage={stage} />
+      {nodes.map((n, i) => (
+        <div key={i}
+          className="absolute z-10 transition-transform hover:scale-105 duration-200"
+          style={{ left: n.cx - (n.depth === 0 ? ROOT_W : CARD_W) / 2, top: n.y }}
+        >
+          {n.depth === 0
+            ? <RootCard node={n.node} level={level} stage={stage} />
+            : <MemberCard node={n.node} gPos={n.gPos} />
+          }
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─── Mobile tree list ────────────────────────────────────────────────────────
+
+const LINE_COLORS = ['#4A7C5E', '#3A7C8E', '#7C6A3A', '#E07840', '#8E5A3A']
+
+function MobileTreeNode({ node, gPos, depth }: { node: any; gPos: number; depth: number }) {
+  const isAccelerator = node?.isAccelerator === true
+  const initials = node?.initials ?? getInitials(node?.name)
+  const bg = depth === 0 ? '#1B2B20' : isAccelerator ? 'white' : colorForInitials(initials)
+  const children: any[] = node?.children ?? []
+  const isRoot = depth === 0
+
+  return (
+    <div>
+      <div
+        className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+        style={isRoot
+          ? { backgroundColor: '#1B2B20' }
+          : isAccelerator
+          ? { backgroundColor: 'rgba(254,243,236,0.7)', border: '2px dashed rgba(224,120,64,0.45)' }
+          : { backgroundColor: 'white', border: '1px solid #E5DDD0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+      >
+        <div
+          className="flex shrink-0 items-center justify-center rounded-full font-bold"
+          style={{
+            width: isRoot ? 38 : 32, height: isRoot ? 38 : 32, minWidth: isRoot ? 38 : 32,
+            fontSize: isRoot ? 13 : 11,
+            backgroundColor: bg,
+            color: isAccelerator ? '#E07840' : 'white',
+            border: isAccelerator ? '1px solid rgba(224,120,64,0.4)' : 'none',
+          }}
+        >
+          {isAccelerator ? <Zap size={14} fill="currentColor" /> : initials}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-bold truncate"
+              style={{ fontSize: isRoot ? 14 : 13, color: isRoot ? 'white' : isAccelerator ? '#E07840' : '#1A1A1A' }}>
+              {isAccelerator ? 'Ускоритель' : (node?.name ?? 'Участник')}
+            </span>
+            {gPos > 0 && (
+              <span className="shrink-0 rounded px-1.5 py-0.5 text-[8px] font-bold"
+                style={isRoot
+                  ? { backgroundColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.6)' }
+                  : isAccelerator
+                  ? { backgroundColor: '#E07840', color: 'white' }
+                  : { backgroundColor: '#F0EBE0', color: '#9B9589' }}>
+                Поз. {gPos}
+              </span>
+            )}
+          </div>
+          <div className="mt-0.5">
+            {isAccelerator
+              ? <span className="text-[8px] font-bold" style={{ color: 'rgba(224,120,64,0.7)' }}>виртуальный · слабая ветка</span>
+              : <StatusBadge status={node?.stageStatus ?? node?.status} />
+            }
+          </div>
+        </div>
       </div>
 
-      <div className="absolute z-10 transition-transform hover:scale-105 duration-200"
-        style={{ top: 140, left: 160 - CARD_W / 2 }}>
-        <MemberCard node={positions[1]} pos={1} />
-      </div>
-      <div className="absolute z-10 transition-transform hover:scale-105 duration-200"
-        style={{ top: 140, left: 480 - CARD_W / 2 }}>
-        <MemberCard node={positions[2]} pos={2} />
-      </div>
-
-      <div className="absolute z-10 transition-transform hover:scale-105 duration-200"
-        style={{ top: 270, left: 80 - CARD_W / 2 }}>
-        <MemberCard node={positions[3]} pos={3} />
-      </div>
-      <div className="absolute z-10 transition-transform hover:scale-105 duration-200"
-        style={{ top: 270, left: 240 - CARD_W / 2 }}>
-        <MemberCard node={positions[4]} pos={4} />
-      </div>
-      <div className="absolute z-10 transition-transform hover:scale-105 duration-200"
-        style={{ top: 270, left: 400 - CARD_W / 2 }}>
-        <MemberCard node={positions[5]} pos={5} />
-      </div>
-      <div className="absolute z-10 transition-transform hover:scale-105 duration-200"
-        style={{ top: 270, left: 560 - CARD_W / 2 }}>
-        <MemberCard node={positions[6]} pos={6} />
-      </div>
+      {children.length > 0 && (
+        <div
+          className="ml-5 mt-2 mb-1 pl-4 border-l-2 border-dashed space-y-2"
+          style={{ borderColor: LINE_COLORS[Math.min(depth, LINE_COLORS.length - 1)] }}
+        >
+          {children.map((child: any, i: number) => (
+            <MobileTreeNode
+              key={i}
+              node={child}
+              gPos={gPos === 0 ? i + 1 : gPos * 2 + i + 1}
+              depth={depth + 1}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
 // ─── Segmented selector ───────────────────────────────────────────────────────
 
-function SegmentedSelector({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string
-  value: number
-  options: number[]
-  onChange: (v: number) => void
+function SegmentedSelector({ label, value, options, onChange }: {
+  label: string; value: number; options: number[]; onChange: (v: number) => void
 }) {
   return (
     <div className="flex items-center gap-2">
       <span className="text-[10px] font-bold text-[#9B9589] uppercase tracking-widest shrink-0">{label}</span>
       <div className="flex items-center p-1 bg-[#F0EBE0] rounded-xl gap-0.5">
         {options.map((opt) => (
-          <button
-            key={opt}
-            onClick={() => onChange(opt)}
+          <button key={opt} onClick={() => onChange(opt)}
             className="w-8 h-7 rounded-lg text-[11px] font-bold transition-all"
-            style={
-              value === opt
-                ? { backgroundColor: '#1B2B20', color: 'white' }
-                : { color: 'rgba(26,26,26,0.4)' }
-            }
-          >
+            style={value === opt ? { backgroundColor: '#1B2B20', color: 'white' } : { color: 'rgba(26,26,26,0.4)' }}>
             {opt}
           </button>
         ))}
@@ -241,39 +307,7 @@ function SegmentedSelector({
   )
 }
 
-// ─── Mobile node ──────────────────────────────────────────────────────────────
-
-function MobileNode({ node, pos, children }: { node?: any; pos: number; children?: React.ReactNode }) {
-  const empty = !node || !node.userId
-  const initials = node?.initials ?? getInitials(node?.name)
-  const bg = empty ? '#D4CFC4' : colorForInitials(initials)
-
-  return (
-    <div className="relative">
-      {children && (
-        <div className="absolute left-3.5 top-8 bottom-0 w-px" style={{ backgroundColor: '#D4CFC4' }} />
-      )}
-      <div className="flex items-center gap-3 py-2">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white z-10"
-          style={{ backgroundColor: bg }}>
-          {empty ? '—' : initials}
-        </div>
-        <div className="flex items-center gap-1.5 min-w-0 flex-1">
-          <span className="text-sm font-bold truncate" style={{ color: empty ? '#9B9589' : '#1A1A1A' }}>
-            {node?.name ?? 'Свободно'}
-          </span>
-          <span className="shrink-0 rounded px-1 py-0.5 text-[8px] font-bold uppercase tracking-wider"
-            style={{ backgroundColor: '#F0EBE0', color: '#9B9589' }}>
-            Поз. {pos}
-          </span>
-        </div>
-      </div>
-      {children && <div className="ml-10 space-y-1">{children}</div>}
-    </div>
-  )
-}
-
-// ─── Bottom stats ─────────────────────────────────────────────────────────────
+// ─── Branch stats ─────────────────────────────────────────────────────────────
 
 function BranchStatCard({ title, value, sub }: { title: string; value: string; sub: string }) {
   return (
@@ -300,19 +334,14 @@ export default function TreePage() {
   const currentLevel = selectedLevel ?? dashData?.data?.currentLevel ?? 1
   const currentStage = selectedStage ?? dashData?.data?.currentStage ?? 1
 
-  const { data: treeData, isLoading, isFetching } = useGetMyTreeQuery(
-    { level: currentLevel, stage: currentStage },
-  )
+  const { data: treeData, isLoading, isFetching } = useGetMyTreeQuery({ level: currentLevel, stage: currentStage })
   const { data: branchesData } = useGetTreeBranchesQuery(undefined)
 
   const tree = treeData?.data
   const rootNode = tree?.root ?? null
-  const positions = extractPositions(rootNode)
   const branches = branchesData?.data
-
-  const progress = tree?.progress
-  const filled: number = progress?.filled ?? 0
-  const total: number = progress?.total ?? 6
+  const filled: number = tree?.progress?.filled ?? 0
+  const total: number = tree?.progress?.total ?? 6
 
   return (
     <CabinetLayout title={t('dashboard.tree_title')}>
@@ -322,13 +351,11 @@ export default function TreePage() {
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
             <h2 className="text-2xl md:text-3xl font-bold text-[#1A1A1A]">{t('dashboard.tree_title')}</h2>
-            <p className="text-xs md:text-sm text-[#9B9589] mt-1.5 leading-relaxed">
-              Дерево из 6 позиций — {t('common.level')} {currentLevel}, {t('common.step')} {currentStage}
+            <p className="text-xs md:text-sm text-[#9B9589] mt-1.5">
+              {t('common.level')} {currentLevel} · {t('common.step')} {currentStage}
             </p>
           </div>
-
-          {/* Level / Stage selectors */}
-          <div className="flex flex-wrap items-center gap-3 self-start sm:self-auto">
+          <div className="flex flex-wrap items-center gap-3 self-start">
             <SegmentedSelector
               label={t('common.level')}
               value={currentLevel}
@@ -346,24 +373,29 @@ export default function TreePage() {
 
         {/* Tree card */}
         <div className="bg-white border border-[#E5DDD0] rounded-3xl p-4 md:p-8 shadow-sm">
-          {/* Card header */}
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="font-bold text-[#1A1A1A] text-lg">
-                {t('common.level')} {currentLevel} · {t('common.step')} {currentStage} — Incubator
+                {t('common.level')} {currentLevel} · {t('common.step')} {currentStage}
               </h3>
-              <p className="text-xs text-[#9B9589] mt-0.5">
-                Заполнено {filled} из {total} позиций
-              </p>
+              <p className="text-xs text-[#9B9589] mt-0.5">Заполнено {filled} из {total} позиций</p>
             </div>
-            {tree?.stageStatus === 'COMPLETED' && (
-              <span className="self-start sm:self-auto px-4 py-1.5 rounded-full bg-[#EDF5F1] text-[10px] font-bold text-[#4A7C5E] uppercase tracking-widest">
-                ● {t('dashboard.stage_completed')}
-              </span>
-            )}
+            <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+              {tree?.accelerator?.active && (
+                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest"
+                  style={{ backgroundColor: 'rgba(224,120,64,0.12)', color: '#E07840' }}>
+                  <Zap size={11} fill="currentColor" /> Ускоритель активен
+                </span>
+              )}
+              {tree?.stageStatus === 'COMPLETED' && (
+                <span className="px-4 py-1.5 rounded-full bg-[#EDF5F1] text-[10px] font-bold text-[#4A7C5E] uppercase tracking-widest">
+                  ● {t('dashboard.stage_completed')}
+                </span>
+              )}
+            </div>
           </div>
 
-          {/* Progress bar */}
+          {/* Progress */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] font-bold text-[#9B9589] uppercase tracking-widest">Прогресс</span>
@@ -375,12 +407,9 @@ export default function TreePage() {
             </div>
           </div>
 
-          {/* Loading overlay */}
           {(isLoading || isFetching) && (
             <div className="flex items-center justify-center py-16">
-              <p className="text-[#9B9589] font-bold animate-pulse uppercase tracking-widest text-sm">
-                ЗАГРУЗКА...
-              </p>
+              <p className="text-[#9B9589] font-bold animate-pulse uppercase tracking-widest text-sm">ЗАГРУЗКА...</p>
             </div>
           )}
 
@@ -390,59 +419,19 @@ export default function TreePage() {
 
           {!isLoading && !isFetching && rootNode && (
             <>
-              {/* Mobile: vertical list */}
-              <div className="md:hidden bg-[#F8F5F0] rounded-2xl p-5">
-                <div className="flex items-center gap-3 py-2 mb-1">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                    style={{ backgroundColor: '#1B2B20' }}>
-                    {rootNode.initials ?? getInitials(rootNode.name)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold truncate text-[#1A1A1A]">{rootNode.name ?? 'Вы'}</p>
-                    <p className="text-[10px] text-[#9B9589]">ROOT · {t('common.level')} {currentLevel} · {t('common.step')} {currentStage}</p>
-                  </div>
-                </div>
-                <div className="ml-5 border-l border-dashed border-[#D4CFC4] pl-5 space-y-1">
-                  <MobileNode node={positions[1]} pos={1}>
-                    <MobileNode node={positions[3]} pos={3} />
-                    <MobileNode node={positions[4]} pos={4} />
-                  </MobileNode>
-                  <MobileNode node={positions[2]} pos={2}>
-                    <MobileNode node={positions[5]} pos={5} />
-                    <MobileNode node={positions[6]} pos={6} />
-                  </MobileNode>
-                </div>
+              {/* Mobile: card list */}
+              <div className="md:hidden bg-[#F8F5F0] rounded-2xl p-4">
+                <MobileTreeNode node={rootNode} gPos={0} depth={0} />
               </div>
 
-              {/* Desktop: fixed canvas */}
+              {/* Desktop: graphical canvas */}
               <div className="hidden md:block bg-[#F8F5F0] rounded-2xl overflow-x-auto">
-                <div className="py-6 px-4 flex justify-center">
-                  <TreeCanvas
-                    positions={positions}
-                    rootNode={rootNode}
-                    level={currentLevel}
-                    stage={currentStage}
-                  />
+                <div className="py-8 px-6 flex justify-center" style={{ minWidth: 'max-content' }}>
+                  <TreeCanvas rootNode={rootNode} level={currentLevel} stage={currentStage} />
                 </div>
               </div>
             </>
           )}
-        </div>
-
-        {/* Legend */}
-        <div className="flex flex-wrap gap-3">
-          <div className="flex items-center gap-2 px-3 py-2 bg-white border border-[#E5DDD0] rounded-xl text-[11px] font-bold text-[#9B9589]">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#1B2B20]" />
-            {t('dashboard.legend_you')}
-          </div>
-          <div className="flex items-center gap-2 px-3 py-2 bg-white border border-[#E5DDD0] rounded-xl text-[11px] font-bold text-[#9B9589]">
-            <span className="w-2.5 h-2.5 rounded-full border-2 border-dashed border-[#D4CFC4]" />
-            {t('dashboard.legend_empty')}
-          </div>
-          <div className="flex items-center gap-2 px-3 py-2 bg-white border border-[#E5DDD0] rounded-xl text-[11px] font-bold text-[#9B9589]">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#4A7C5E]" />
-            {t('dashboard.legend_active')}
-          </div>
         </div>
 
         {/* Branch stats */}
