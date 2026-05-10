@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Copy, Check, AlertCircle, Smartphone, UserCheck } from 'lucide-react';
 import AuthLayout from './AuthLayout';
@@ -605,6 +605,7 @@ function Step4({ transactionId: _initialTxId }: Step4Props) {
 
 export default function Register() {
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
 
   const [step, setStep] = useState(1);
   const [timer, setTimer] = useState(300);
@@ -612,7 +613,7 @@ export default function Register() {
   const [transactionId, setTransactionId] = useState('');
 
   // Step 1 — basic info
-  const [referralCode, setReferralCode] = useState('');
+  const [referralCode, setReferralCode] = useState(searchParams.get('ref') ?? '');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');

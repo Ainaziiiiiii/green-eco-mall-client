@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import DashboardPage from './pages/Dashboard';
 import TreePage from './pages/Tree';
 import LevelsPage from './pages/Levels';
@@ -24,12 +24,19 @@ function GuestRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function JoinRedirect() {
+  const location = useLocation();
+  const ref = new URLSearchParams(location.search).get('ref');
+  return <Navigate to={ref ? `/register?ref=${ref}` : '/register'} replace />;
+}
+
 export default function App() {
   return (
     <Router>
       <Routes>
         <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
         <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
+        <Route path="/join" element={<JoinRedirect />} />
         <Route path="/" element={<RequireAuth><DashboardPage /></RequireAuth>} />
         <Route path="/tree" element={<RequireAuth><TreePage /></RequireAuth>} />
         <Route path="/levels" element={<RequireAuth><LevelsPage /></RequireAuth>} />
