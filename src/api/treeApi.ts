@@ -18,6 +18,9 @@ export const treeApi = baseApi.injectEndpoints({
       query: () => '/api/tree/activity',
       providesTags: ['Tree'],
     }),
+    getTreeMember: builder.query({
+      query: (userId: string) => `/api/tree/member/${userId}`,
+    }),
   }),
 });
 
@@ -26,4 +29,5 @@ export const {
   useGetMyTreeQuery,
   useGetTreeBranchesQuery,
   useGetTreeActivityQuery,
+  useGetTreeMemberQuery,
 } = treeApi;

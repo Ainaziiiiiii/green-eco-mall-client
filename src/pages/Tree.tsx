@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
-import { Zap } from 'lucide-react'
+import { Zap, X, Copy, Check, Users, GitBranch } from 'lucide-react'
 import { CabinetLayout } from '#widgets/CabinetLayout'
 import { useTranslation } from 'react-i18next'
-import { useGetMyTreeQuery, useGetTreeBranchesQuery } from '../api/treeApi'
+import { useGetMyTreeQuery, useGetTreeBranchesQuery, useGetTreeMemberQuery } from '../api/treeApi'
 import { useGetDashboardQuery } from '../api/dashboardApi'
+import { useGetMeQuery } from '../api/authApi'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -91,6 +92,126 @@ function buildEdges(nodes: LayoutNode[]): Edge[] {
   })
 }
 
+// ─── Member Modal ─────────────────────────────────────────────────────────────
+
+function MemberModal({ userId, onClose }: { userId: string; onClose: () => void }) {
+  const [copied, setCopied] = useState(false)
+  const { data, isLoading } = useGetTreeMemberQuery(userId)
+  const member = data?.data
+
+  const handleCopy = () => {
+    if (!member?.referralLink) return
+    navigator.clipboard.writeText(member.referralLink)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const joinedAt = member?.joinedAt
+    ? new Date(member.joinedAt).toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' })
+    : null
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-3xl bg-white shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="relative p-6 pb-5" style={{ backgroundColor: '#1B2B20' }}>
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+            style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}
+          >
+            <X size={16} />
+          </button>
+
+          {isLoading ? (
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
+              <div className="space-y-2">
+                <div className="h-4 w-32 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                <div className="h-3 w-20 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-4">
+              <div
+                className="w-14 h-14 rounded-2xl flex items-center justify-center text-lg font-bold text-white shrink-0"
+                style={{ backgroundColor: colorForInitials(member?.initials) }}
+              >
+                {member?.initials ?? '??'}
+              </div>
+              <div className="min-w-0">
+                <p className="text-lg font-bold text-white leading-tight">{member?.name ?? '—'}</p>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.6)' }}>
+                    Ур. {member?.currentLevel ?? '—'} · Эт. {member?.currentStage ?? '—'}
+                  </span>
+                  {member?.accountStatus === 'ACTIVE' && (
+                    <span className="text-[10px] font-bold text-[#4A7C5E] uppercase tracking-widest">● Активен</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Body */}
+        <div className="p-6 space-y-5">
+          {/* Team stats */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { icon: Users, label: 'Команда', value: member?.teamSize ?? '—' },
+              { icon: GitBranch, label: 'Лев. ветка', value: member?.leftBranchSize ?? '—' },
+              { icon: GitBranch, label: 'Прав. ветка', value: member?.rightBranchSize ?? '—' },
+            ].map(({ icon: Icon, label, value }) => (
+              <div key={label} className="rounded-2xl p-3 text-center" style={{ backgroundColor: '#F8F5F0' }}>
+                <Icon size={14} className="mx-auto mb-1" style={{ color: '#9B9589' }} />
+                <p className="text-lg font-bold text-[#1A1A1A]">{isLoading ? '—' : value}</p>
+                <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#9B9589' }}>{label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Join date */}
+          {joinedAt && (
+            <div className="flex items-center justify-between py-3 border-t border-[#F0EBE0]">
+              <span className="text-[11px] font-bold text-[#9B9589] uppercase tracking-widest">Дата вступления</span>
+              <span className="text-[13px] font-bold text-[#1A1A1A]">{joinedAt}</span>
+            </div>
+          )}
+
+          {/* Referral link */}
+          {member?.referralLink && (
+            <div className="rounded-2xl p-4" style={{ backgroundColor: '#F8F5F0' }}>
+              <p className="text-[10px] font-bold text-[#9B9589] uppercase tracking-widest mb-2">Реферальная ссылка</p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-[#1A1A1A] font-medium truncate flex-1">{member.referralLink}</p>
+                <button
+                  onClick={handleCopy}
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-widest transition-all"
+                  style={copied
+                    ? { backgroundColor: '#EDF5F1', color: '#4A7C5E' }
+                    : { backgroundColor: '#1B2B20', color: 'white' }}
+                >
+                  {copied ? <Check size={12} /> : <Copy size={12} />}
+                  {copied ? 'Скопировано' : 'Копировать'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Cards ────────────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status?: string }) {
@@ -131,7 +252,30 @@ function RootCard({ node, level, stage }: { node: any; level: number; stage: num
   )
 }
 
+function EmptySlotCard({ gPos }: { gPos: number }) {
+  return (
+    <div className="rounded-xl border-2 border-dashed p-2.5"
+      style={{ width: CARD_W, borderColor: '#D4CFC4', backgroundColor: '#F8F5F0' }}>
+      <div className="mb-1.5 flex items-center justify-between gap-1">
+        <span className="rounded px-1 py-0.5 text-[8px] font-bold"
+          style={{ backgroundColor: '#E5DDD0', color: '#9B9589' }}>Поз. {gPos}</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-dashed"
+          style={{ borderColor: '#D4CFC4' }}>
+          <span style={{ color: '#C5BDB3', fontSize: 14, lineHeight: 1 }}>+</span>
+        </div>
+        <p className="text-[10px] font-medium" style={{ color: '#C5BDB3' }}>Свободно</p>
+      </div>
+    </div>
+  )
+}
+
 function MemberCard({ node, gPos }: { node: any; gPos: number }) {
+  if (node?.isEmpty || (!node?.name && !node?.initials && !node?.isAccelerator)) {
+    return <EmptySlotCard gPos={gPos} />
+  }
+
   if (node?.isAccelerator) {
     return (
       <div className="rounded-xl border-2 border-dashed p-2.5"
@@ -175,7 +319,9 @@ function MemberCard({ node, gPos }: { node: any; gPos: number }) {
 
 // ─── Tree canvas ──────────────────────────────────────────────────────────────
 
-function TreeCanvas({ rootNode, level, stage }: { rootNode: any; level: number; stage: number }) {
+function TreeCanvas({ rootNode, level, stage, onNodeClick }: {
+  rootNode: any; level: number; stage: number; onNodeClick: (id: string) => void
+}) {
   const { nodes, canvasW, canvasH } = buildLayout(rootNode)
   const edges = buildEdges(nodes)
 
@@ -193,17 +339,26 @@ function TreeCanvas({ rootNode, level, stage }: { rootNode: any; level: number; 
         })}
       </svg>
 
-      {nodes.map((n, i) => (
-        <div key={i}
-          className="absolute z-10 transition-transform hover:scale-105 duration-200"
-          style={{ left: n.cx - (n.depth === 0 ? ROOT_W : CARD_W) / 2, top: n.y }}
-        >
-          {n.depth === 0
-            ? <RootCard node={n.node} level={level} stage={stage} />
-            : <MemberCard node={n.node} gPos={n.gPos} />
-          }
-        </div>
-      ))}
+      {nodes.map((n, i) => {
+        const isClickable = n.depth > 0 && n.node?.userId && !n.node?.isEmpty && !n.node?.isAccelerator
+        return (
+          <div
+            key={i}
+            className="absolute z-10 transition-transform hover:scale-105 duration-200"
+            style={{
+              left: n.cx - (n.depth === 0 ? ROOT_W : CARD_W) / 2,
+              top: n.y,
+              cursor: isClickable ? 'pointer' : 'default',
+            }}
+            onClick={isClickable ? () => onNodeClick(n.node.userId) : undefined}
+          >
+            {n.depth === 0
+              ? <RootCard node={n.node} level={level} stage={stage} />
+              : <MemberCard node={n.node} gPos={n.gPos} />
+            }
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -212,22 +367,73 @@ function TreeCanvas({ rootNode, level, stage }: { rootNode: any; level: number; 
 
 const LINE_COLORS = ['#4A7C5E', '#3A7C8E', '#7C6A3A', '#E07840', '#8E5A3A']
 
-function MobileTreeNode({ node, gPos, depth }: { node: any; gPos: number; depth: number }) {
+function MobileEmptySlot({ gPos }: { gPos: number }) {
+  return (
+    <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+      style={{ border: '2px dashed #D4CFC4', backgroundColor: '#F8F5F0' }}>
+      <div className="flex shrink-0 items-center justify-center rounded-full border-2 border-dashed"
+        style={{ width: 32, height: 32, minWidth: 32, borderColor: '#D4CFC4' }}>
+        <span style={{ color: '#C5BDB3', fontSize: 16, lineHeight: 1 }}>+</span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <span className="font-medium text-[13px]" style={{ color: '#C5BDB3' }}>Свободно</span>
+          <span className="rounded px-1.5 py-0.5 text-[8px] font-bold"
+            style={{ backgroundColor: '#E5DDD0', color: '#9B9589' }}>Поз. {gPos}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MobileTreeNode({ node, gPos, depth, onNodeClick }: {
+  node: any; gPos: number; depth: number; onNodeClick?: (id: string) => void
+}) {
+  const isEmpty = node?.isEmpty || (!node?.name && !node?.initials && !node?.isAccelerator && depth > 0)
   const isAccelerator = node?.isAccelerator === true
   const initials = node?.initials ?? getInitials(node?.name)
   const bg = depth === 0 ? '#1B2B20' : isAccelerator ? 'white' : colorForInitials(initials)
   const children: any[] = node?.children ?? []
   const isRoot = depth === 0
+  const isClickable = !isRoot && !isEmpty && !isAccelerator && !!node?.userId
+
+  if (isEmpty) {
+    return (
+      <div>
+        <MobileEmptySlot gPos={gPos} />
+        {children.length > 0 && (
+          <div
+            className="ml-5 mt-2 mb-1 pl-4 border-l-2 border-dashed space-y-2"
+            style={{ borderColor: LINE_COLORS[Math.min(depth, LINE_COLORS.length - 1)] }}
+          >
+            {children.map((child: any, i: number) => (
+              <MobileTreeNode
+                key={i}
+                node={child}
+                gPos={gPos === 0 ? i + 1 : gPos * 2 + i + 1}
+                depth={depth + 1}
+                onNodeClick={onNodeClick}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div>
       <div
+        onClick={isClickable ? () => onNodeClick?.(node.userId) : undefined}
         className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
-        style={isRoot
-          ? { backgroundColor: '#1B2B20' }
-          : isAccelerator
-          ? { backgroundColor: 'rgba(254,243,236,0.7)', border: '2px dashed rgba(224,120,64,0.45)' }
-          : { backgroundColor: 'white', border: '1px solid #E5DDD0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+        style={{
+          cursor: isClickable ? 'pointer' : 'default',
+          ...(isRoot
+            ? { backgroundColor: '#1B2B20' }
+            : isAccelerator
+            ? { backgroundColor: 'rgba(254,243,236,0.7)', border: '2px dashed rgba(224,120,64,0.45)' }
+            : { backgroundColor: 'white', border: '1px solid #E5DDD0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' })
+        }}
       >
         <div
           className="flex shrink-0 items-center justify-center rounded-full font-bold"
@@ -278,6 +484,7 @@ function MobileTreeNode({ node, gPos, depth }: { node: any; gPos: number; depth:
               node={child}
               gPos={gPos === 0 ? i + 1 : gPos * 2 + i + 1}
               depth={depth + 1}
+              onNodeClick={onNodeClick}
             />
           ))}
         </div>
@@ -321,18 +528,23 @@ function BranchStatCard({ title, value, sub }: { title: string; value: string; s
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-const LEVEL_OPTIONS = [1, 2, 3, 4]
 const STAGE_OPTIONS = [1, 2, 3, 4]
 
 export default function TreePage() {
   const { t } = useTranslation()
   const { data: dashData } = useGetDashboardQuery(undefined)
+  const { data: meData } = useGetMeQuery(undefined)
+
+  const isFastStart = meData?.data?.registrationPlan === 'FAST_START'
+  const LEVEL_OPTIONS = isFastStart ? [0, 1, 2, 3, 4] : [1, 2, 3, 4]
 
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null)
   const [selectedStage, setSelectedStage] = useState<number | null>(null)
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
 
-  const currentLevel = selectedLevel ?? dashData?.data?.currentLevel ?? 1
-  const currentStage = selectedStage ?? dashData?.data?.currentStage ?? 1
+  const defaultLevel = isFastStart ? 0 : (dashData?.data?.currentLevel ?? 1)
+  const currentLevel = selectedLevel ?? defaultLevel
+  const currentStage = selectedStage ?? (currentLevel === 0 ? 1 : (dashData?.data?.currentStage ?? 1))
 
   const { data: treeData, isLoading, isFetching } = useGetMyTreeQuery({ level: currentLevel, stage: currentStage })
   const { data: branchesData } = useGetTreeBranchesQuery(undefined)
@@ -341,18 +553,32 @@ export default function TreePage() {
   const rootNode = tree?.root ?? null
   const branches = branchesData?.data
   const filled: number = tree?.progress?.filled ?? 0
-  const total: number = tree?.progress?.total ?? 6
+  const total: number = tree?.progress?.total ?? (currentLevel === 0 ? 1 : 6)
+  const fastStartNumber: number | null = tree?.fastStartNumber ?? meData?.data?.fastStartNumber ?? null
 
   return (
     <CabinetLayout title={t('dashboard.tree_title')}>
+      {selectedUserId && (
+        <MemberModal userId={selectedUserId} onClose={() => setSelectedUserId(null)} />
+      )}
       <div className="space-y-6">
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
-            <h2 className="text-2xl md:text-3xl font-bold text-[#1A1A1A]">{t('dashboard.tree_title')}</h2>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h2 className="text-2xl md:text-3xl font-bold text-[#1A1A1A]">{t('dashboard.tree_title')}</h2>
+              {currentLevel === 0 && fastStartNumber != null && (
+                <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest text-white"
+                  style={{ backgroundColor: '#E07840' }}>
+                  <Zap size={12} fill="currentColor" /> FAST START #{fastStartNumber}
+                </span>
+              )}
+            </div>
             <p className="text-xs md:text-sm text-[#9B9589] mt-1.5">
-              {t('common.level')} {currentLevel} · {t('common.step')} {currentStage}
+              {currentLevel === 0
+                ? 'Быстрый Старт — пригласи 1 человека для перехода на Уровень 1'
+                : `${t('common.level')} ${currentLevel} · ${t('common.step')} ${currentStage}`}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 self-start">
@@ -362,12 +588,14 @@ export default function TreePage() {
               options={LEVEL_OPTIONS}
               onChange={(v) => { setSelectedLevel(v); setSelectedStage(1) }}
             />
-            <SegmentedSelector
-              label={t('common.step')}
-              value={currentStage}
-              options={STAGE_OPTIONS}
-              onChange={setSelectedStage}
-            />
+            {currentLevel !== 0 && (
+              <SegmentedSelector
+                label={t('common.step')}
+                value={currentStage}
+                options={STAGE_OPTIONS}
+                onChange={setSelectedStage}
+              />
+            )}
           </div>
         </div>
 
@@ -376,18 +604,29 @@ export default function TreePage() {
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="font-bold text-[#1A1A1A] text-lg">
-                {t('common.level')} {currentLevel} · {t('common.step')} {currentStage}
+                {currentLevel === 0
+                  ? 'Быстрый Старт · 0 Уровень'
+                  : `${t('common.level')} ${currentLevel} · ${t('common.step')} ${currentStage}`}
               </h3>
-              <p className="text-xs text-[#9B9589] mt-0.5">Заполнено {filled} из {total} позиций</p>
+              <p className="text-xs text-[#9B9589] mt-0.5">
+                {currentLevel === 0
+                  ? `Нужен ${total} реферал · приглашено ${filled}`
+                  : `Заполнено ${filled} из ${total} позиций`}
+              </p>
             </div>
             <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+              {currentLevel === 0 && filled >= total && total > 0 && (
+                <span className="px-4 py-1.5 rounded-full bg-[#EDF5F1] text-[10px] font-bold text-[#4A7C5E] uppercase tracking-widest">
+                  ● Готов к переходу
+                </span>
+              )}
               {tree?.accelerator?.active && (
                 <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest"
                   style={{ backgroundColor: 'rgba(224,120,64,0.12)', color: '#E07840' }}>
                   <Zap size={11} fill="currentColor" /> Ускоритель активен
                 </span>
               )}
-              {tree?.stageStatus === 'COMPLETED' && (
+              {tree?.stageStatus === 'COMPLETED' && currentLevel !== 0 && (
                 <span className="px-4 py-1.5 rounded-full bg-[#EDF5F1] text-[10px] font-bold text-[#4A7C5E] uppercase tracking-widest">
                   ● {t('dashboard.stage_completed')}
                 </span>
@@ -417,17 +656,34 @@ export default function TreePage() {
             <p className="text-center text-[#9B9589] py-12 font-medium">Нет данных для этого уровня и этапа</p>
           )}
 
-          {!isLoading && !isFetching && rootNode && (
+          {!isLoading && !isFetching && rootNode && currentStage === 4 && !rootNode?.children?.length && (
+            <div className="flex flex-col items-center gap-4 py-14">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                style={{ backgroundColor: '#F0EBE0' }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#C5BDB3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              </div>
+              <div className="text-center">
+                <p className="font-bold text-[#1A1A1A] text-base">Этап ещё не начат</p>
+                <p className="text-sm text-[#9B9589] mt-1">Дерево Этапа 4 появится, когда вы до него дойдёте</p>
+              </div>
+            </div>
+          )}
+
+          {!isLoading && !isFetching && rootNode && !(currentStage === 4 && !rootNode?.children?.length) && (
             <>
               {/* Mobile: card list */}
               <div className="md:hidden bg-[#F8F5F0] rounded-2xl p-4">
-                <MobileTreeNode node={rootNode} gPos={0} depth={0} />
+                <MobileTreeNode node={rootNode} gPos={0} depth={0} onNodeClick={setSelectedUserId} />
               </div>
 
               {/* Desktop: graphical canvas */}
               <div className="hidden md:block bg-[#F8F5F0] rounded-2xl overflow-x-auto">
                 <div className="py-8 px-6 flex justify-center" style={{ minWidth: 'max-content' }}>
-                  <TreeCanvas rootNode={rootNode} level={currentLevel} stage={currentStage} />
+                  <TreeCanvas rootNode={rootNode} level={currentLevel} stage={currentStage} onNodeClick={setSelectedUserId} />
                 </div>
               </div>
             </>

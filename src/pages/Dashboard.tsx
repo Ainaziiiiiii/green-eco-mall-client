@@ -1,10 +1,12 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import { Copy, LayoutGrid, Plus, QrCode } from 'lucide-react'
+import { Copy, QrCode, Zap } from 'lucide-react'
 import { CabinetLayout } from '#widgets/CabinetLayout'
 import { useGetDashboardQuery } from '../api/dashboardApi'
 import { useGetMyTreeQuery } from '../api/treeApi'
 import { useGetLevelsOverviewQuery } from '../api/levelsApi'
+
+import { useGetMeQuery } from '../api/authApi'
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
 
@@ -348,19 +350,22 @@ function BonusRow({ bonus }: { bonus: any }) {
 export default function DashboardPage() {
   const { t } = useTranslation()
   const { data: dashboardData, isLoading, isError } = useGetDashboardQuery(undefined)
+  const { data: meData } = useGetMeQuery(undefined)
   const data = dashboardData?.data
 
-  const { data: treeData } = useGetMyTreeQuery(
-    { level: data?.currentLevel ?? 1, stage: data?.currentStage ?? 1 },
-    { skip: !data?.currentLevel }
-  )
-  const { data: levelsData } = useGetLevelsOverviewQuery(undefined)
+  const isFastStart = meData?.data?.registrationPlan === 'FAST_START'
+  const fastStartNumber: number | null = meData?.data?.fastStartNumber ?? null
 
-  // API returns nested tree: root → children → children
-  // Flatten recursively into a flat array so byPos(n) works
-  const rootUser = treeData?.data?.root ?? null
-  const treeNodes: any[] = flattenChildren(rootUser?.children ?? [])
-  const treeProgress = treeData?.data?.progress
+  const { data: fastStartTreeData } = useGetMyTreeQuery(
+    { level: 0, stage: 1 },
+    { skip: !isFastStart }
+  )
+  const fastStartTree = fastStartTreeData?.data
+  const fastStartFilled: number = fastStartTree?.progress?.filled ?? 0
+  const fastStartTotal: number = fastStartTree?.progress?.total ?? 1
+  const fastStartDone = fastStartFilled >= fastStartTotal && fastStartTotal > 0
+
+  const { data: levelsData } = useGetLevelsOverviewQuery(undefined)
 
   const allLevels: any[] = levelsData?.data?.levels ?? []
   const currentLevelData = allLevels.find((l) => l.level === data?.currentLevel) ?? allLevels[0]
@@ -389,7 +394,7 @@ export default function DashboardPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pb-2">
           <div>
             <h2 className="text-2xl md:text-3xl font-bold text-[#1A1A1A]">
-              {t('dashboard.welcome', { name: data?.firstName || 'Участник' })}
+              {t('dashboard.welcome', { name: meData?.data?.firstName || data?.firstName || 'Участник' })}
             </h2>
             <p className="mt-1.5 max-w-xl text-xs md:text-sm text-[#9B9589] leading-relaxed">
               {t('dashboard.status_summary', {
@@ -399,103 +404,64 @@ export default function DashboardPage() {
               })}
             </p>
           </div>
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            <button
-              onClick={() => data?.referralLink && navigator.clipboard.writeText(data.referralLink)}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl border border-[#E5DDD0] bg-white px-5 py-3 text-sm font-bold text-[#1A1A1A] transition-all hover:bg-[#F8F5F0] hover:shadow-sm"
-            >
-              <LayoutGrid size={16} strokeWidth={2} />
-              <span className="whitespace-nowrap">{t('dashboard.my_link')}</span>
-            </button>
-            <button
-              onClick={() => data?.referralLink && navigator.clipboard.writeText(data.referralLink)}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl bg-[#1A1A1A] px-5 py-3 text-sm font-bold text-white transition-all hover:bg-[#333] hover:shadow-lg hover:shadow-black/10"
-            >
-              <Plus size={16} strokeWidth={2.5} />
-              <span>{t('dashboard.invite')}</span>
-            </button>
-          </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            label={t('dashboard.balance')}
-            value={data?.balance?.toLocaleString('ru-RU') || '0'}
-            unit={t('common.currency')}
-            sub={t('dashboard.weekly_growth', { amount: '' })}
-            dark
-          />
-          <StatCard
-            label={t('dashboard.pending')}
-            value={data?.pendingBonuses?.toLocaleString('ru-RU') || '0'}
-            unit={t('common.currency')}
-            sub={t('dashboard.pending_hint')}
-          />
-          <StatCard
-            label={t('dashboard.total_earned')}
-            value={data?.totalEarned?.toLocaleString('ru-RU') || '0'}
-            unit={t('common.currency')}
-            sub={t('dashboard.bonus_confirmed', { count: data?.recentBonuses?.length || 0 })}
-          />
-          <StatCard
-            label={t('dashboard.team_count')}
-            value={data?.teamSize?.toString() || '0'}
-            unit="чел."
-            sub={t('dashboard.today_growth', { count: 0 })}
-          />
-        </div>
-
-        {/* Tree + right panel */}
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
-          {/* Tree card */}
-          <div className="rounded-3xl border border-[#E5DDD0] bg-white p-4 md:p-8 flex flex-col shadow-sm">
-            <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
-                <h3 className="font-bold text-[#1A1A1A] text-lg">{t('dashboard.tree_title')}</h3>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-[#9B9589] bg-[#F8F5F0] px-2 py-0.5 rounded">
-                    {treeProgress?.filled ?? data?.treeSummary?.filled ?? 0} / {treeProgress?.total ?? data?.treeSummary?.total ?? 6} {t('dashboard.filled')}
-                  </span>
-                  {(treeProgress?.filled ?? data?.treeSummary?.filled) === (treeProgress?.total ?? data?.treeSummary?.total) && (treeProgress?.total ?? data?.treeSummary?.total ?? 0) > 0 && (
-                    <span className="rounded-full bg-[#EDF5F1] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#4A7C5E]">
-                      ● {t('dashboard.stage_completed')}
-                    </span>
-                  )}
+        {/* Fast Start banner */}
+        {isFastStart && (
+          <div className="rounded-3xl p-6 md:p-7 border-2 relative overflow-hidden"
+            style={{ borderColor: 'rgba(224,120,64,0.35)', backgroundColor: 'rgba(254,243,236,0.5)' }}>
+            <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full opacity-10 pointer-events-none"
+              style={{ backgroundColor: '#E07840' }} />
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-5">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: '#E07840' }}>
+                  <Zap size={26} fill="white" className="text-white" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: '#E07840' }}>
+                      FAST START
+                    </p>
+                    {fastStartNumber != null && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+                        style={{ backgroundColor: '#E07840' }}>
+                        #{fastStartNumber}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-lg font-bold text-[#1A1A1A] mt-0.5">0 Уровень · Быстрый Старт</p>
+                  <p className="text-xs text-[#9B9589] mt-0.5">
+                    {fastStartDone
+                      ? 'Реферал приглашён — готов к переходу на Уровень 1'
+                      : 'Пригласи 1 человека для перехода на Уровень 1'}
+                  </p>
                 </div>
               </div>
-              <p className="text-[11px] font-bold text-[#9B9589] uppercase tracking-widest">
-                {t('common.level')} {data?.currentLevel || 1} · {t('common.step')} {data?.currentStage || 1}
-              </p>
-            </div>
-
-            <OrgTree
-              nodes={treeNodes}
-              filled={treeProgress?.filled ?? data?.treeSummary?.filled ?? 0}
-              total={treeProgress?.total ?? data?.treeSummary?.total ?? 6}
-              rootUser={rootUser}
-              currentLevel={data?.currentLevel}
-              currentStage={data?.currentStage}
-            />
-
-            {/* Legend */}
-            <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 pt-6 border-t border-[#F0EBE0]">
-              {[
-                { bg: '#1B2B20', label: t('dashboard.legend_you') },
-                { bg: '#E5F0E8', border: '#4A7C5E', label: t('dashboard.legend_completed') },
-                { bg: '#F0EBE0', border: '#D4CFC4', label: t('dashboard.legend_team') },
-                { bg: '#F8F5F0', border: '#D4CFC4', label: t('dashboard.legend_free') },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center gap-2">
-                  <div className="h-3.5 w-3.5 rounded-sm shadow-sm"
-                    style={{ backgroundColor: item.bg, border: item.border ? `1px solid ${item.border}` : undefined }} />
-                  <span className="text-[11px] font-bold text-[#9B9589] uppercase tracking-tight">{item.label}</span>
+              <div className="sm:ml-auto flex-shrink-0 w-full sm:w-48">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-bold text-[#9B9589] uppercase tracking-widest">Прогресс</span>
+                  <span className="text-[11px] font-bold" style={{ color: fastStartDone ? '#4A7C5E' : '#E07840' }}>
+                    {fastStartFilled} / {fastStartTotal}
+                  </span>
                 </div>
-              ))}
+                <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#F5E8DC' }}>
+                  <div className="h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${fastStartTotal > 0 ? (fastStartFilled / fastStartTotal) * 100 : 0}%`,
+                      backgroundColor: fastStartDone ? '#4A7C5E' : '#E07840',
+                    }} />
+                </div>
+                {fastStartDone && (
+                  <p className="text-[10px] font-bold text-[#4A7C5E] mt-1.5 uppercase tracking-widest">● Готов к переходу</p>
+                )}
+              </div>
             </div>
           </div>
+        )}
 
-          {/* Right panel */}
+        {/* Stages + Stats */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           <div className="space-y-6">
             {/* Stage progress */}
             <div className="rounded-3xl border border-[#E5DDD0] bg-white p-6 md:p-7 shadow-sm">
@@ -547,6 +513,35 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Stat cards — vertical */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-4 content-start">
+            <StatCard
+              label={t('dashboard.balance')}
+              value={data?.balance?.toLocaleString('ru-RU') || '0'}
+              unit={t('common.currency')}
+              sub={t('dashboard.weekly_growth', { amount: '' })}
+              dark
+            />
+            <StatCard
+              label={t('dashboard.pending')}
+              value={data?.pendingBonuses?.toLocaleString('ru-RU') || '0'}
+              unit={t('common.currency')}
+              sub={t('dashboard.pending_hint')}
+            />
+            <StatCard
+              label={t('dashboard.total_earned')}
+              value={data?.totalEarned?.toLocaleString('ru-RU') || '0'}
+              unit={t('common.currency')}
+              sub={t('dashboard.bonus_confirmed', { count: data?.recentBonuses?.length || 0 })}
+            />
+            <StatCard
+              label={t('dashboard.team_count')}
+              value={data?.teamSize?.toString() || '0'}
+              unit="чел."
+              sub={t('dashboard.today_growth', { count: 0 })}
+            />
           </div>
         </div>
 

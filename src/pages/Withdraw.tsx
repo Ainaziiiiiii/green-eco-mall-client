@@ -7,10 +7,9 @@ import { useGetWithdrawalsQuery, useCreateWithdrawalMutation } from '../api/with
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type WithdrawMethod = 'FINIK' | 'BANK_CARD' | 'PHONE_TRANSFER'
+type WithdrawMethod = 'BANK_CARD' | 'PHONE_TRANSFER'
 
 const METHOD_CONFIG: Record<WithdrawMethod, { icon: React.ReactNode; label: string; placeholder: string }> = {
-  FINIK:          { icon: <Smartphone size={18} />,  label: 'Finik',          placeholder: '+996 XXX XX XX XX' },
   BANK_CARD:      { icon: <CreditCard size={18} />,  label: 'Банковская карта', placeholder: '0000 0000 0000 0000' },
   PHONE_TRANSFER: { icon: <Smartphone size={18} />,  label: 'Перевод на телефон', placeholder: '+996 XXX XX XX XX' },
 }
@@ -32,7 +31,7 @@ export default function WithdrawPage() {
   const history: any[] = withdrawalsData?.data?.content ?? withdrawalsData?.data ?? []
 
   const [amount, setAmount] = useState('')
-  const [method, setMethod] = useState<WithdrawMethod>('FINIK')
+  const [method, setMethod] = useState<WithdrawMethod>('BANK_CARD')
   const [requisite, setRequisite] = useState('')
   const [bankName, setBankName] = useState('')
   const [error, setError] = useState('')

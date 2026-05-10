@@ -10,8 +10,6 @@ import {
   Bell,
   User as UserIcon,
   LogOut,
-  Search,
-  Settings,
   Menu,
   X
 } from 'lucide-react';
@@ -19,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../providers/AuthProvider';
 import { useGetMeQuery } from '../../api/authApi';
+import { useGetNotificationsQuery } from '../../api/userApi';
 
 interface CabinetLayoutProps {
   children: React.ReactNode;
@@ -31,7 +30,9 @@ export function CabinetLayout({ children, title }: CabinetLayoutProps) {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const { data: meData } = useGetMeQuery(undefined);
+  const { data: notifData } = useGetNotificationsQuery(undefined);
   const me = meData?.data;
+  const unreadCount: number = (notifData?.data ?? []).filter((n: any) => !n.isRead && !n.read).length;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
   const handleLogout = () => {
@@ -172,15 +173,16 @@ export function CabinetLayout({ children, title }: CabinetLayoutProps) {
           <div className="flex items-center gap-2 md:gap-3">
             <div className="flex items-center gap-1.5 md:gap-2">
               <LanguageSwitcher />
-              <button className="w-9 h-9 md:w-10 md:h-10 rounded-xl border border-[#E5DDD0] bg-white flex items-center justify-center text-[#1A1A1A]/60 hover:bg-[#F8F5F0] transition-all">
-                <Search size={18} />
-              </button>
-              <button className="w-9 h-9 md:w-10 md:h-10 rounded-xl border border-[#E5DDD0] bg-white flex items-center justify-center text-[#1A1A1A]/60 hover:bg-[#F8F5F0] transition-all relative">
+              <button
+                onClick={() => navigate('/notifications')}
+                className="w-9 h-9 md:w-10 md:h-10 rounded-xl border border-[#E5DDD0] bg-white flex items-center justify-center text-[#1A1A1A]/60 hover:bg-[#F8F5F0] transition-all relative"
+              >
                 <Bell size={18} />
-                <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-[#E07840] border-2 border-white" />
-              </button>
-              <button className="hidden sm:flex w-10 h-10 rounded-xl border border-[#E5DDD0] bg-white items-center justify-center text-[#1A1A1A]/60 hover:bg-[#F8F5F0] transition-all">
-                <Settings size={18} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#E07840] border-2 border-white flex items-center justify-center text-[9px] font-bold text-white leading-none">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </button>
             </div>
           </div>
