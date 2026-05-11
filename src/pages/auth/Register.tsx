@@ -616,7 +616,7 @@ export default function Register() {
   const [referralCode, setReferralCode] = useState(searchParams.get('ref') ?? '');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState('+996');
 
   // Step 2 — plan selection
   const [selectedPlan, setSelectedPlan] = useState<'FAST_START' | 'STANDARD' | null>(null);

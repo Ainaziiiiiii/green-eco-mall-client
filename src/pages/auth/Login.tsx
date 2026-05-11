@@ -14,7 +14,7 @@ type ForgotStep = 'credentials' | 'otp' | 'newPassword' | 'done'
 
 function ForgotPasswordView({ onBack }: { onBack: () => void }) {
   const [step, setStep] = useState<ForgotStep>('credentials')
-  const [phone, setPhone] = useState('')
+  const [phone, setPhone] = useState('+996')
   const [codeWord, setCodeWord] = useState('')
   const [otp, setOtp] = useState(['', '', '', '', '', ''])
   const [timer, setTimer] = useState(300)
@@ -269,7 +269,7 @@ function ErrorAlert({ message }: { message: string }) {
 export default function Login() {
   const { t } = useTranslation();
   const [showPassword, setShowPassword] = useState(false);
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState('+996');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [showForgot, setShowForgot] = useState(false);

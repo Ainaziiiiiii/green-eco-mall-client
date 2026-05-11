@@ -126,7 +126,7 @@ export default function WithdrawPage() {
                     return (
                       <button
                         key={m}
-                        onClick={() => { setMethod(m); setError('') }}
+                        onClick={() => { setMethod(m); setRequisite(m === 'PHONE_TRANSFER' ? '+996' : ''); setError('') }}
                         className={cn(
                           'flex items-center gap-3 px-5 py-3 rounded-xl border transition-all w-full sm:w-auto',
                           active
