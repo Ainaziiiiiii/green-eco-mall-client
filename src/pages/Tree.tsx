@@ -528,8 +528,6 @@ function BranchStatCard({ title, value, sub }: { title: string; value: string; s
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-const STAGE_OPTIONS = [1, 2, 3, 4]
-
 export default function TreePage() {
   const { t } = useTranslation()
   const { data: dashData } = useGetDashboardQuery(undefined)
@@ -544,7 +542,10 @@ export default function TreePage() {
 
   const defaultLevel = isFastStart ? 0 : (dashData?.data?.currentLevel ?? 1)
   const currentLevel = selectedLevel ?? defaultLevel
-  const currentStage = selectedStage ?? (currentLevel === 0 ? 1 : (dashData?.data?.currentStage ?? 1))
+
+  const stageOptions = (isFastStart && currentLevel === 1) ? [2, 3, 4] : [1, 2, 3, 4]
+  const defaultStage = currentLevel === 0 ? 1 : (isFastStart && currentLevel === 1) ? 2 : (dashData?.data?.currentStage ?? 1)
+  const currentStage = selectedStage ?? defaultStage
 
   const { data: treeData, isLoading, isFetching } = useGetMyTreeQuery({ level: currentLevel, stage: currentStage })
   const { data: branchesData } = useGetTreeBranchesQuery(undefined)
@@ -586,13 +587,13 @@ export default function TreePage() {
               label={t('common.level')}
               value={currentLevel}
               options={LEVEL_OPTIONS}
-              onChange={(v) => { setSelectedLevel(v); setSelectedStage(1) }}
+              onChange={(v) => { setSelectedLevel(v); setSelectedStage(null) }}
             />
             {currentLevel !== 0 && (
               <SegmentedSelector
                 label={t('common.step')}
                 value={currentStage}
-                options={STAGE_OPTIONS}
+                options={stageOptions}
                 onChange={setSelectedStage}
               />
             )}
