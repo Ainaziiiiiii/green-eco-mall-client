@@ -45,7 +45,7 @@ export default function WithdrawPage() {
     if (!num || num < 1000) { setError('Минимальная сумма — 1 000 сом'); return }
     if (num > balance)       { setError('Недостаточно средств на балансе'); return }
     if (!requisite.trim())   { setError('Укажите реквизиты'); return }
-    if (method === 'BANK_CARD' && !bankName.trim()) { setError('Укажите название банка'); return }
+    if (!bankName.trim()) { setError('Укажите название банка'); return }
 
     try {
       const body: any = { amount: num, method, requisite: requisite.trim() }
@@ -155,8 +155,8 @@ export default function WithdrawPage() {
                 />
               </div>
 
-              {/* Bank name (only for BANK_CARD) */}
-              {method === 'BANK_CARD' && (
+              {/* Bank name */}
+              {(method === 'BANK_CARD' || method === 'PHONE_TRANSFER') && (
                 <div>
                   <p className="text-[10px] font-bold text-[#9B9589] tracking-widest mb-3 uppercase">Название банка</p>
                   <input
