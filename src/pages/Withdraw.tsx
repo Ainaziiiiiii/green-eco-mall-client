@@ -45,11 +45,11 @@ export default function WithdrawPage() {
     if (!num || num < 1000) { setError('Минимальная сумма — 1 000 сом'); return }
     if (num > balance)       { setError('Недостаточно средств на балансе'); return }
     if (!requisite.trim())   { setError('Укажите реквизиты'); return }
-    if (!bankName.trim()) { setError('Укажите название банка'); return }
+    if (method === 'PHONE_TRANSFER' && !bankName.trim()) { setError('Укажите банк / платёжную систему'); return }
 
     try {
       const body: any = { amount: num, method, requisite: requisite.trim() }
-      if (method === 'BANK_CARD') body.bankName = bankName.trim()
+      if (bankName.trim()) body.bankName = bankName.trim()
       await createWithdrawal(body).unwrap()
       setSuccess(true)
       setAmount('')
@@ -156,17 +156,17 @@ export default function WithdrawPage() {
               </div>
 
               {/* Bank name */}
-              {(method === 'BANK_CARD' || method === 'PHONE_TRANSFER') && (
-                <div>
-                  <p className="text-[10px] font-bold text-[#9B9589] tracking-widest mb-3 uppercase">Название банка</p>
-                  <input
-                    value={bankName}
-                    onChange={(e) => { setBankName(e.target.value); setError('') }}
-                    placeholder="Например: Mbank, Оптима"
-                    className="w-full h-12 px-4 bg-[#F8F5F0] border border-[#E5DDD0] rounded-xl text-sm font-bold text-[#1A1A1A] focus:outline-none focus:border-[#1B2B20]"
-                  />
-                </div>
-              )}
+              <div>
+                <p className="text-[10px] font-bold text-[#9B9589] tracking-widest mb-3 uppercase">
+                  {method === 'PHONE_TRANSFER' ? 'Банк / платёжная система' : 'Название банка (необязательно)'}
+                </p>
+                <input
+                  value={bankName}
+                  onChange={(e) => { setBankName(e.target.value); setError('') }}
+                  placeholder={method === 'PHONE_TRANSFER' ? 'MBank, Элсом, О!Деньги...' : 'Мбанк, Бакай, Оптима...'}
+                  className="w-full h-12 px-4 bg-[#F8F5F0] border border-[#E5DDD0] rounded-xl text-sm font-bold text-[#1A1A1A] focus:outline-none focus:border-[#1B2B20]"
+                />
+              </div>
 
               {/* Info */}
               <div className="bg-[#EEE8DA]/40 border border-[#EEE8DA] rounded-2xl p-5 flex gap-4">
@@ -250,8 +250,9 @@ export default function WithdrawPage() {
                           <td className="py-4 pr-3 text-xs font-medium text-[#9B9589] tracking-tight whitespace-nowrap">
                             {new Date(w.createdAt).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                           </td>
-                          <td className="py-4 pr-3 text-sm font-bold text-[#1A1A1A] whitespace-nowrap">
-                            {(w.amount ?? 0).toLocaleString('ru-RU')}
+                          <td className="py-4 pr-3">
+                            <p className="text-sm font-bold text-[#1A1A1A] whitespace-nowrap">{(w.amount ?? 0).toLocaleString('ru-RU')}</p>
+                            {w.bankName && <p className="text-[10px] text-[#9B9589] font-medium mt-0.5">{w.bankName}</p>}
                           </td>
                           <td className="py-4 text-right">
                             <span
