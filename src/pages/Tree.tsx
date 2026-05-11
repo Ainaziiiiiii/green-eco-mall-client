@@ -557,6 +557,13 @@ export default function TreePage() {
   const total: number = tree?.progress?.total ?? (currentLevel === 0 ? 1 : 6)
   const fastStartNumber: number | null = tree?.fastStartNumber ?? meData?.data?.fastStartNumber ?? null
 
+  const userCurrentLevel: number = meData?.data?.currentLevel ?? dashData?.data?.currentLevel ?? 1
+  const userCurrentStage: number = meData?.data?.currentStage ?? dashData?.data?.currentStage ?? 1
+  const stageNotStarted = currentLevel !== 0 && (
+    currentLevel > userCurrentLevel ||
+    (currentLevel === userCurrentLevel && currentStage > userCurrentStage)
+  )
+
   return (
     <CabinetLayout title={t('dashboard.tree_title')}>
       {selectedUserId && (
@@ -653,7 +660,7 @@ export default function TreePage() {
             </div>
           )}
 
-          {!isLoading && !isFetching && (!rootNode || !rootNode?.children?.length) && currentLevel !== 0 && (
+          {!isLoading && !isFetching && stageNotStarted && (
             <div className="flex flex-col items-center gap-4 py-14">
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
                 style={{ backgroundColor: '#F0EBE0' }}>
@@ -670,7 +677,11 @@ export default function TreePage() {
             </div>
           )}
 
-          {!isLoading && !isFetching && rootNode && rootNode?.children?.length > 0 && (
+          {!isLoading && !isFetching && !stageNotStarted && !rootNode && (
+            <p className="text-center text-[#9B9589] py-12 font-medium">Нет данных для этого уровня и этапа</p>
+          )}
+
+          {!isLoading && !isFetching && !stageNotStarted && rootNode && (
             <>
               {/* Mobile: card list */}
               <div className="md:hidden bg-[#F8F5F0] rounded-2xl p-4">
