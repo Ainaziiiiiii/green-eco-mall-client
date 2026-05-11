@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Zap, X, Copy, Check, Users, GitBranch } from 'lucide-react'
 import { CabinetLayout } from '#widgets/CabinetLayout'
 import { useTranslation } from 'react-i18next'
-import { useGetMyTreeQuery, useGetTreeBranchesQuery, useGetTreeMemberQuery } from '../api/treeApi'
+import { useGetMyTreeQuery, useGetTreeBranchesQuery, useGetTreeMemberQuery, useGetStage2RaceQuery } from '../api/treeApi'
 import { useGetDashboardQuery } from '../api/dashboardApi'
 import { useGetMeQuery } from '../api/authApi'
 
@@ -526,6 +526,71 @@ function BranchStatCard({ title, value, sub }: { title: string; value: string; s
   )
 }
 
+// ─── Stage 2 Race ─────────────────────────────────────────────────────────────
+
+const RANK_MEDALS = ['🥇', '🥈', '🥉']
+
+function Stage2RaceBlock({ level }: { level: number }) {
+  const { data, isLoading } = useGetStage2RaceQuery(level)
+  const items: any[] = data?.data ?? data ?? []
+  const stage2Completed: boolean = data?.stage2Completed ?? items.some((i: any) => i.stage2Completed)
+
+  if (stage2Completed || isLoading && items.length === 0) return null
+
+  return (
+    <div className="bg-white border border-[#E5DDD0] rounded-3xl p-5 md:p-6 shadow-sm mb-6">
+      <div className="flex items-center gap-2 mb-5">
+        <span className="text-lg">🏁</span>
+        <h3 className="font-bold text-[#1A1A1A] text-base">Гонка за позицию</h3>
+        <span className="ml-auto text-[10px] font-bold text-[#E07840] bg-[#E07840]/10 px-2.5 py-1 rounded-full uppercase tracking-widest">
+          Идёт
+        </span>
+      </div>
+
+      {isLoading ? (
+        <p className="text-center text-[#9B9589] text-xs font-bold animate-pulse py-4">Загрузка...</p>
+      ) : (
+        <div className="space-y-3">
+          {items.map((item: any, idx: number) => {
+            const filled: number = item.filled ?? 0
+            const total: number = item.total ?? 6
+            const pct = total > 0 ? Math.round((filled / total) * 100) : 0
+            const isPartner: boolean = item.isFixedPartner
+            const slotLabel = item.fixedPartnerSlot === 1 ? 'Левый партнёр' : item.fixedPartnerSlot === 2 ? 'Правый партнёр' : null
+
+            return (
+              <div key={idx} className="flex items-center gap-3">
+                <span className="text-base w-6 shrink-0 text-center">
+                  {RANK_MEDALS[idx] ?? '  '}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1.5 gap-2">
+                    <span className="text-sm font-bold text-[#1A1A1A] truncate">{item.name ?? item.initials}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs font-bold text-[#9B9589]">{filled}/{total}</span>
+                      {isPartner && slotLabel && (
+                        <span className="text-[9px] font-black tracking-widest uppercase text-[#4A7C5E] bg-[#EDF5F1] px-2 py-0.5 rounded-full whitespace-nowrap">
+                          ✅ {slotLabel}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="h-2 bg-[#F0EBE0] rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${pct}%`, backgroundColor: isPartner ? '#4A7C5E' : '#E07840' }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function TreePage() {
@@ -653,6 +718,10 @@ export default function TreePage() {
                 style={{ width: `${total > 0 ? (filled / total) * 100 : 0}%`, backgroundColor: '#4A7C5E' }} />
             </div>
           </div>
+
+          {currentLevel !== 0 && currentStage === 2 && (
+            <Stage2RaceBlock level={currentLevel} />
+          )}
 
           {(isLoading || isFetching) && (
             <div className="flex items-center justify-center py-16">
