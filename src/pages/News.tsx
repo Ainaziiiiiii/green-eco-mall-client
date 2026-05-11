@@ -1,22 +1,12 @@
 import React, { useState } from 'react';
 import { X, Pin, Wallet, Gift, Layers, BarChart3, Package, Users } from 'lucide-react';
 import { CabinetLayout } from '#widgets/CabinetLayout';
-import { cn } from '@/lib/utils';
 import { useGetNewsQuery, useGetNewsByIdQuery } from '../api/newsApi';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 type Category = 'ALL' | 'LEVELS' | 'PAYMENTS' | 'PROMO' | 'STAGES' | 'PARTNERS' | 'COMMUNITY';
 
-const CATEGORIES: { id: Category; label: string }[] = [
-  { id: 'ALL',       label: 'Все' },
-  { id: 'LEVELS',    label: 'Уровни' },
-  { id: 'PAYMENTS',  label: 'Выплаты' },
-  { id: 'PROMO',     label: 'Акции' },
-  { id: 'STAGES',    label: 'Этапы' },
-  { id: 'PARTNERS',  label: 'Партнёры' },
-  { id: 'COMMUNITY', label: 'Сообщество' },
-];
 
 const CATEGORY_CONFIG: Record<Category, { label: string; bg: string; icon: React.ReactNode }> = {
   ALL:       { label: 'Все',        bg: '#1B2B20', icon: <Layers size={32} strokeWidth={1.5} /> },
@@ -179,10 +169,9 @@ function NewsModal({ id, onClose }: { id: string; onClose: () => void }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function NewsPage() {
-  const [activeCategory, setActiveCategory] = useState<Category>('ALL');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const { data, isLoading } = useGetNewsQuery({ category: activeCategory });
+  const { data, isLoading } = useGetNewsQuery({});
   const items: any[] = data?.data?.content ?? data?.data ?? data?.content ?? [];
 
   const pinned = items.find((i: any) => i.isPinned || i.pinned);
@@ -196,24 +185,6 @@ export default function NewsPage() {
           <p className="text-sm text-[#9B9589] mt-1">
             Объявления, акции и изменения условий программы.
           </p>
-        </div>
-
-        {/* Category tabs */}
-        <div className="flex flex-wrap gap-2">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setActiveCategory(cat.id)}
-              className={cn(
-                'px-4 py-2 rounded-xl text-xs font-bold transition-all border',
-                activeCategory === cat.id
-                  ? 'bg-[#1B2B20] text-white border-[#1B2B20]'
-                  : 'bg-white text-[#1A1A1A] border-[#E5DDD0] hover:bg-[#F8F5F0]'
-              )}
-            >
-              {cat.label}
-            </button>
-          ))}
         </div>
 
         {isLoading && (
