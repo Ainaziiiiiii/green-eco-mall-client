@@ -653,11 +653,7 @@ export default function TreePage() {
             </div>
           )}
 
-          {!isLoading && !isFetching && !rootNode && (
-            <p className="text-center text-[#9B9589] py-12 font-medium">Нет данных для этого уровня и этапа</p>
-          )}
-
-          {!isLoading && !isFetching && rootNode && currentStage === 4 && !rootNode?.children?.length && (
+          {!isLoading && !isFetching && (!rootNode || !rootNode?.children?.length) && currentLevel !== 0 && (
             <div className="flex flex-col items-center gap-4 py-14">
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
                 style={{ backgroundColor: '#F0EBE0' }}>
@@ -669,12 +665,12 @@ export default function TreePage() {
               </div>
               <div className="text-center">
                 <p className="font-bold text-[#1A1A1A] text-base">Этап ещё не начат</p>
-                <p className="text-sm text-[#9B9589] mt-1">Дерево Этапа 4 появится, когда вы до него дойдёте</p>
+                <p className="text-sm text-[#9B9589] mt-1">Дерево Этапа {currentStage} появится, когда вы до него дойдёте</p>
               </div>
             </div>
           )}
 
-          {!isLoading && !isFetching && rootNode && !(currentStage === 4 && !rootNode?.children?.length) && (
+          {!isLoading && !isFetching && rootNode && rootNode?.children?.length > 0 && (
             <>
               {/* Mobile: card list */}
               <div className="md:hidden bg-[#F8F5F0] rounded-2xl p-4">
