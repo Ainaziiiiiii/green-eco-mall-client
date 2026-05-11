@@ -5,6 +5,7 @@ import LevelsPage from './pages/Levels';
 import BonusesPage from './pages/Bonuses';
 import WithdrawPage from './pages/Withdraw';
 import NotificationsPage from './pages/Notifications';
+import NewsPage from './pages/News';
 import ProfilePage from './pages/Profile';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="/levels" element={<RequireAuth><LevelsPage /></RequireAuth>} />
         <Route path="/bonuses" element={<RequireAuth><BonusesPage /></RequireAuth>} />
         <Route path="/withdraw" element={<RequireAuth><WithdrawPage /></RequireAuth>} />
+        <Route path="/news" element={<RequireAuth><NewsPage /></RequireAuth>} />
         <Route path="/notifications" element={<RequireAuth><NotificationsPage /></RequireAuth>} />
         <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />

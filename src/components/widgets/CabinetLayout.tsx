@@ -8,6 +8,7 @@ import {
   BarChart3,
   Wallet,
   Bell,
+  Newspaper,
   User as UserIcon,
   LogOut,
   Menu,
@@ -18,6 +19,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../providers/AuthProvider';
 import { useGetMeQuery } from '../../api/authApi';
 import { useGetNotificationsQuery } from '../../api/userApi';
+import { useGetNewsUnreadCountQuery } from '../../api/newsApi';
 
 interface CabinetLayoutProps {
   children: React.ReactNode;
@@ -31,8 +33,10 @@ export function CabinetLayout({ children, title }: CabinetLayoutProps) {
   const { logout } = useAuth();
   const { data: meData } = useGetMeQuery(undefined);
   const { data: notifData } = useGetNotificationsQuery(undefined);
+  const { data: newsCountData } = useGetNewsUnreadCountQuery(undefined);
   const me = meData?.data;
   const unreadCount: number = (notifData?.data ?? []).filter((n: any) => !n.isRead && !n.read).length;
+  const newsUnread: number = newsCountData?.data?.count ?? newsCountData?.count ?? 0;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
   const handleLogout = () => {
@@ -46,6 +50,7 @@ export function CabinetLayout({ children, title }: CabinetLayoutProps) {
     { name: t('common.levels'), icon: Layers, section: 'КАБИНЕТ', path: '/levels' },
     { name: 'Бонусы', icon: BarChart3, section: 'КАБИНЕТ', path: '/bonuses' },
     { name: t('common.withdraw'), icon: Wallet, section: 'КАБИНЕТ', path: '/withdraw' },
+    { name: 'Новости', icon: Newspaper, section: 'АККАУНТ', path: '/news' },
     { name: t('common.notifications'), icon: Bell, section: 'АККАУНТ', path: '/notifications' },
     { name: t('common.profile'), icon: UserIcon, section: 'АККАУНТ', path: '/profile' },
   ];
@@ -104,20 +109,28 @@ export function CabinetLayout({ children, title }: CabinetLayoutProps) {
           <div>
             <p className="text-[10px] font-bold text-white/30 tracking-[0.15em] mb-4">АККАУНТ</p>
             <div className="space-y-1">
-              {navItems.filter(i => i.section === 'АККАУНТ').map((item) => (
-                <Link
-                  key={item.name}
-                  to={item.path}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-white/50 hover:bg-white/5 hover:text-white/80",
-                    isActive(item.path) && "bg-white/10 text-white"
-                  )}
-                >
-                  <item.icon size={18} strokeWidth={2} />
-                  <span className="flex-1 text-left">{item.name}</span>
-                </Link>
-              ))}
+              {navItems.filter(i => i.section === 'АККАУНТ').map((item) => {
+                const badge = item.path === '/news' ? newsUnread : item.path === '/notifications' ? unreadCount : 0;
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.path}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-white/50 hover:bg-white/5 hover:text-white/80",
+                      isActive(item.path) && "bg-white/10 text-white"
+                    )}
+                  >
+                    <item.icon size={18} strokeWidth={2} />
+                    <span className="flex-1 text-left">{item.name}</span>
+                    {badge > 0 && (
+                      <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[#E07840] flex items-center justify-center text-[9px] font-black text-white leading-none">
+                        {badge > 99 ? '99+' : badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
             </div>
           </div>
         </nav>
