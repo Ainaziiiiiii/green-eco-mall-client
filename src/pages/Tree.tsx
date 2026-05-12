@@ -530,7 +530,7 @@ function BranchStatCard({ title, value, sub }: { title: string; value: string; s
 
 const RANK_MEDALS = ['🥇', '🥈', '🥉']
 
-function Stage2RaceBlock({ level }: { level: number }) {
+function Stage2RaceBlock({ level, stageStatus }: { level: number; stageStatus?: string }) {
   const { data, isLoading } = useGetStage2RaceQuery(level)
   const inner = data?.data
   const items: any[] = Array.isArray(inner)
@@ -541,6 +541,7 @@ function Stage2RaceBlock({ level }: { level: number }) {
         ? data
         : []
   const stage2Completed: boolean =
+    stageStatus === 'COMPLETED' ||
     inner?.stage2Completed ?? data?.stage2Completed ?? items.some((i: any) => i.stage2Completed) ?? false
 
   if (!isLoading && stage2Completed) return null
@@ -729,7 +730,7 @@ export default function TreePage() {
           </div>
 
           {currentLevel !== 0 && currentStage === 2 && (
-            <Stage2RaceBlock level={currentLevel} />
+            <Stage2RaceBlock level={currentLevel} stageStatus={tree?.stageStatus} />
           )}
 
           {(isLoading || isFetching) && (
