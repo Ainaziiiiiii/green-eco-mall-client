@@ -542,7 +542,7 @@ function Stage2RaceBlock({ level, stageStatus }: { level: number; stageStatus?: 
         : []
   const stage2Completed: boolean =
     stageStatus === 'COMPLETED' ||
-    inner?.stage2Completed ?? data?.stage2Completed ?? items.some((i: any) => i.stage2Completed) ?? false
+    !!(inner?.stage2Completed ?? data?.stage2Completed ?? items.some((i: any) => i.stage2Completed))
 
   if (!isLoading && stage2Completed) return null
   if (isLoading && items.length === 0) return null
