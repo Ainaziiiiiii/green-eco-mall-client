@@ -29,8 +29,8 @@ function getInitials(name?: string) {
 const CARD_W = 138
 const ROOT_W = 165
 const CARD_H = 82
-const H_UNIT = 152   // CARD_W + gap between cards
-const V_STEP = 134   // vertical distance between level tops
+const H_UNIT = 160   // CARD_W + gap between cards
+const V_STEP = 160   // vertical distance between level tops
 const PAD = 24
 
 interface LayoutNode {
