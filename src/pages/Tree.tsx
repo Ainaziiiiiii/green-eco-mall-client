@@ -532,10 +532,19 @@ const RANK_MEDALS = ['🥇', '🥈', '🥉']
 
 function Stage2RaceBlock({ level }: { level: number }) {
   const { data, isLoading } = useGetStage2RaceQuery(level)
-  const items: any[] = data?.data ?? data ?? []
-  const stage2Completed: boolean = data?.stage2Completed ?? items.some((i: any) => i.stage2Completed)
+  const inner = data?.data
+  const items: any[] = Array.isArray(inner)
+    ? inner
+    : Array.isArray(inner?.participants)
+      ? inner.participants
+      : Array.isArray(data)
+        ? data
+        : []
+  const stage2Completed: boolean =
+    inner?.stage2Completed ?? data?.stage2Completed ?? items.some((i: any) => i.stage2Completed) ?? false
 
-  if (stage2Completed || isLoading && items.length === 0) return null
+  if (!isLoading && stage2Completed) return null
+  if (isLoading && items.length === 0) return null
 
   return (
     <div className="bg-white border border-[#E5DDD0] rounded-3xl p-5 md:p-6 shadow-sm mb-6">
