@@ -535,11 +535,13 @@ function Stage2RaceBlock({ level, stageStatus }: { level: number; stageStatus?: 
   const inner = data?.data
   const items: any[] = Array.isArray(inner)
     ? inner
-    : Array.isArray(inner?.participants)
-      ? inner.participants
-      : Array.isArray(data)
-        ? data
-        : []
+    : Array.isArray(inner?.candidates)
+      ? inner.candidates
+      : Array.isArray(inner?.participants)
+        ? inner.participants
+        : Array.isArray(data)
+          ? data
+          : []
   const stage2Completed: boolean =
     stageStatus === 'COMPLETED' ||
     !!(inner?.stage2Completed ?? data?.stage2Completed ?? items.some((i: any) => i.stage2Completed))
