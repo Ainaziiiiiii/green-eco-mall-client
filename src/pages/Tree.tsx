@@ -763,19 +763,11 @@ export default function TreePage() {
           )}
 
           {!isLoading && !isFetching && !stageNotStarted && rootNode && (
-            <>
-              {/* Mobile: card list */}
-              <div className="md:hidden bg-[#F8F5F0] rounded-2xl p-4">
-                <MobileTreeNode node={rootNode} gPos={0} depth={0} onNodeClick={setSelectedUserId} />
+            <div className="bg-[#F8F5F0] rounded-2xl overflow-x-auto">
+              <div className="py-8 px-6 flex justify-center" style={{ minWidth: 'max-content' }}>
+                <TreeCanvas rootNode={rootNode} level={currentLevel} stage={currentStage} onNodeClick={setSelectedUserId} />
               </div>
-
-              {/* Desktop: graphical canvas */}
-              <div className="hidden md:block bg-[#F8F5F0] rounded-2xl overflow-x-auto">
-                <div className="py-8 px-6 flex justify-center" style={{ minWidth: 'max-content' }}>
-                  <TreeCanvas rootNode={rootNode} level={currentLevel} stage={currentStage} onNodeClick={setSelectedUserId} />
-                </div>
-              </div>
-            </>
+            </div>
           )}
         </div>
 
