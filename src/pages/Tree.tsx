@@ -764,7 +764,10 @@ export default function TreePage() {
 
           {!isLoading && !isFetching && !stageNotStarted && rootNode && (
             <div className="bg-[#F8F5F0] rounded-2xl overflow-x-auto">
-              <div className="py-8 px-6 flex justify-center" style={{ minWidth: 'max-content' }}>
+              <div className="md:hidden py-6 px-4 flex justify-center" style={{ minWidth: 'max-content', zoom: 0.58 }}>
+                <TreeCanvas rootNode={rootNode} level={currentLevel} stage={currentStage} onNodeClick={setSelectedUserId} />
+              </div>
+              <div className="hidden md:flex py-8 px-6 justify-center" style={{ minWidth: 'max-content' }}>
                 <TreeCanvas rootNode={rootNode} level={currentLevel} stage={currentStage} onNodeClick={setSelectedUserId} />
               </div>
             </div>
