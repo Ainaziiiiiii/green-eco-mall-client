@@ -658,10 +658,6 @@ export default function TreePage() {
   const branches = branchesData?.data
   const fastStartNumber: number | null = tree?.fastStartNumber ?? meData?.data?.fastStartNumber ?? null
 
-  const isStageCompleted =
-    tree?.stageStatus === 'COMPLETED' ||
-    tree?.status === 'COMPLETED' ||
-    (total > 0 && filled >= total)
   const stageGoal = currentLevel === 0 ? 1 : (currentStage % 2 === 0 ? 2 : 6)
   const total: number = stageGoal
   const filled: number = (() => {
@@ -678,6 +674,11 @@ export default function TreePage() {
     walk(rootNode, 0)
     return count
   })()
+
+  const isStageCompleted =
+    tree?.stageStatus === 'COMPLETED' ||
+    tree?.status === 'COMPLETED' ||
+    (total > 0 && filled >= total)
 
   const userCurrentLevel: number = meData?.data?.currentLevel ?? dashData?.data?.currentLevel ?? 1
   const userCurrentStage: number = meData?.data?.currentStage ?? dashData?.data?.currentStage ?? 1
