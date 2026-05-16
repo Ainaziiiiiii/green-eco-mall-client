@@ -821,28 +821,18 @@ export default function TreePage() {
         </div>
 
         {/* Branch stats */}
-        {(() => {
-          const leftBranch = tree?.branches?.left ?? branches?.left
-          const rightBranch = tree?.branches?.right ?? branches?.right
-          return (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <BranchStatCard
-                title="ЛЕВАЯ ВЕТКА"
-                value={`${leftBranch?.size ?? 0} чел.`}
-                sub={leftBranch?.members?.[0]?.name
-                  ? `${leftBranch.members[0].name} · ${leftBranch.size} вглубь`
-                  : leftBranch?.size > 0 ? `${leftBranch.size} участников` : 'Нет участников'}
-              />
-              <BranchStatCard
-                title="ПРАВАЯ ВЕТКА"
-                value={`${rightBranch?.size ?? 0} чел.`}
-                sub={rightBranch?.members?.[0]?.name
-                  ? `${rightBranch.members[0].name} · ${rightBranch.size} вглубь`
-                  : rightBranch?.size > 0 ? `${rightBranch.size} участников` : 'Нет участников'}
-              />
-            </div>
-          )
-        })()}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <BranchStatCard
+            title="ЛЕВАЯ ВЕТКА"
+            value={`${tree?.branches?.left?.size ?? 0} чел.`}
+            sub={tree?.branches?.left?.size > 0 ? `${tree.branches.left.size} участников` : 'Нет участников'}
+          />
+          <BranchStatCard
+            title="ПРАВАЯ ВЕТКА"
+            value={`${tree?.branches?.right?.size ?? 0} чел.`}
+            sub={tree?.branches?.right?.size > 0 ? `${tree.branches.right.size} участников` : 'Нет участников'}
+          />
+        </div>
 
       </div>
     </CabinetLayout>
