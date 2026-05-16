@@ -310,20 +310,20 @@ function MemberCard({ node, gPos, stage = 1 }: { node: any; gPos: number; stage?
   const showAccelBadge = node.acceleratorAssisted && (node.currentStage ?? 0) >= 2
   const isMainTeam = gPos >= 1 && gPos <= mainTeamSize(stage)
   return (
-    <div className="relative" style={{ width: CARD_W }}>
+    <div className="rounded-xl border bg-white shadow-sm overflow-hidden" style={{
+      width: CARD_W,
+      borderColor: isMainTeam ? '#22C55E' : '#E5DDD0',
+      backgroundColor: isMainTeam ? '#F0FDF4' : 'white',
+      boxShadow: isMainTeam ? '0 0 0 1px #22C55E, 0 2px 8px rgba(34,197,94,0.2)' : undefined,
+    }}>
       {showAccelBadge && (
-        <div className="absolute -top-4 left-0 right-0 flex justify-center">
-          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[7px] font-black text-white whitespace-nowrap"
-            style={{ backgroundColor: '#E07840' }}>
-            <Zap size={7} fill="currentColor" /> Помог ускоритель
-          </span>
+        <div className="flex items-center justify-center gap-1 py-0.5"
+          style={{ backgroundColor: '#E07840' }}>
+          <Zap size={7} fill="white" color="white" />
+          <span className="text-[7px] font-black text-white tracking-wide">ПОМОГ УСКОРИТЕЛЬ</span>
         </div>
       )}
-      <div className="rounded-xl border bg-white p-2.5 shadow-sm" style={{
-        borderColor: isMainTeam ? '#22C55E' : '#E5DDD0',
-        backgroundColor: isMainTeam ? '#F0FDF4' : 'white',
-        boxShadow: isMainTeam ? '0 0 0 1px #22C55E, 0 2px 8px rgba(34,197,94,0.2)' : undefined,
-      }}>
+      <div className="p-2.5">
         <div className="mb-1.5 flex items-center justify-between gap-1">
           <span className="rounded px-1 py-0.5 text-[8px] font-bold text-white"
             style={{ backgroundColor: '#1A1A1A' }}>Поз. {gPos}</span>
