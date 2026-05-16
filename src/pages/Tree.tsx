@@ -656,6 +656,7 @@ export default function TreePage() {
   const tree = treeData?.data
   const rootNode = tree?.root ?? null
   const branches = branchesData?.data
+  const stageBranches = tree?.branches ?? treeData?.branches ?? null
   const fastStartNumber: number | null = tree?.fastStartNumber ?? meData?.data?.fastStartNumber ?? null
 
   const stageGoal = currentLevel === 0 ? 1 : (currentStage % 2 === 0 ? 2 : 6)
@@ -824,13 +825,13 @@ export default function TreePage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <BranchStatCard
             title="ЛЕВАЯ ВЕТКА"
-            value={`${tree?.branches?.left?.size ?? 0} чел.`}
-            sub={tree?.branches?.left?.size > 0 ? `${tree.branches.left.size} участников` : 'Нет участников'}
+            value={`${stageBranches?.left?.size ?? 0} чел.`}
+            sub={stageBranches?.left?.size > 0 ? `${stageBranches.left.size} участников` : 'Нет участников'}
           />
           <BranchStatCard
             title="ПРАВАЯ ВЕТКА"
-            value={`${tree?.branches?.right?.size ?? 0} чел.`}
-            sub={tree?.branches?.right?.size > 0 ? `${tree.branches.right.size} участников` : 'Нет участников'}
+            value={`${stageBranches?.right?.size ?? 0} чел.`}
+            sub={stageBranches?.right?.size > 0 ? `${stageBranches.right.size} участников` : 'Нет участников'}
           />
         </div>
 
