@@ -310,32 +310,35 @@ function MemberCard({ node, gPos, stage = 1 }: { node: any; gPos: number; stage?
   const showAccelBadge = node.acceleratorAssisted && (node.currentStage ?? 0) >= 2
   const isMainTeam = gPos >= 1 && gPos <= mainTeamSize(stage)
   return (
-    <div className="rounded-xl border bg-white p-2.5 shadow-sm" style={{
-      width: CARD_W,
-      borderColor: isMainTeam ? '#22C55E' : '#E5DDD0',
-      backgroundColor: isMainTeam ? '#F0FDF4' : 'white',
-      boxShadow: isMainTeam ? '0 0 0 1px #22C55E, 0 2px 8px rgba(34,197,94,0.2)' : undefined,
-    }}>
-      <div className="mb-1.5 flex items-center justify-between gap-1">
-        <span className="rounded px-1 py-0.5 text-[8px] font-bold text-white"
-          style={{ backgroundColor: '#1A1A1A' }}>Поз. {gPos}</span>
-        <StatusBadge status={node.stageStatus ?? node.status} />
-      </div>
-      <div className="flex items-center gap-1.5">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
-          style={{ backgroundColor: colorForInitials(initials) }}>
-          {initials}
-        </div>
-        <p className="text-[11px] font-semibold leading-tight line-clamp-2 min-w-0 flex-1" style={{ color: '#1A1A1A' }}>
-          {node.name ?? 'Участник'}
-        </p>
-      </div>
+    <div className="relative" style={{ width: CARD_W }}>
       {showAccelBadge && (
-        <div className="mt-1.5 flex items-center gap-1">
-          <Zap size={8} className="shrink-0" style={{ color: '#E07840' }} />
-          <span className="text-[8px] font-bold" style={{ color: '#E07840' }}>Помог ускоритель</span>
+        <div className="absolute -top-4 left-0 right-0 flex justify-center">
+          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[7px] font-black text-white whitespace-nowrap"
+            style={{ backgroundColor: '#E07840' }}>
+            <Zap size={7} fill="currentColor" /> Помог ускоритель
+          </span>
         </div>
       )}
+      <div className="rounded-xl border bg-white p-2.5 shadow-sm" style={{
+        borderColor: isMainTeam ? '#22C55E' : '#E5DDD0',
+        backgroundColor: isMainTeam ? '#F0FDF4' : 'white',
+        boxShadow: isMainTeam ? '0 0 0 1px #22C55E, 0 2px 8px rgba(34,197,94,0.2)' : undefined,
+      }}>
+        <div className="mb-1.5 flex items-center justify-between gap-1">
+          <span className="rounded px-1 py-0.5 text-[8px] font-bold text-white"
+            style={{ backgroundColor: '#1A1A1A' }}>Поз. {gPos}</span>
+          <StatusBadge status={node.stageStatus ?? node.status} />
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+            style={{ backgroundColor: colorForInitials(initials) }}>
+            {initials}
+          </div>
+          <p className="text-[11px] font-semibold leading-tight line-clamp-2 min-w-0 flex-1" style={{ color: '#1A1A1A' }}>
+            {node.name ?? 'Участник'}
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
