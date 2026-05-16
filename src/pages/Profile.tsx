@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Copy, Check, AlertCircle } from 'lucide-react'
+import { Copy, Check, AlertCircle, Zap } from 'lucide-react'
 import { CabinetLayout } from '#widgets/CabinetLayout'
 import { useTranslation } from 'react-i18next'
 import { useGetMeQuery } from '../api/authApi'
@@ -122,6 +122,12 @@ export default function ProfilePage() {
                   <span className="text-[10px] font-bold text-[#9B9589] uppercase tracking-widest">
                     Уровень {user?.currentLevel} · Этап {user?.currentStage}
                   </span>
+                  {user?.acceleratorAssisted && (user?.currentStage ?? 0) >= 2 && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                      style={{ backgroundColor: 'rgba(224,120,64,0.12)', color: '#E07840' }}>
+                      <Zap size={9} fill="currentColor" /> Помог ускоритель
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

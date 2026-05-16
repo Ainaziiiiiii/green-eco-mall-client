@@ -156,6 +156,12 @@ function MemberModal({ userId, onClose }: { userId: string; onClose: () => void 
                   {member?.accountStatus === 'ACTIVE' && (
                     <span className="text-[10px] font-bold text-[#4A7C5E] uppercase tracking-widest">● Активен</span>
                   )}
+                  {member?.acceleratorAssisted && (member?.currentStage ?? 0) >= 2 && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md"
+                      style={{ backgroundColor: 'rgba(224,120,64,0.15)', color: '#E07840' }}>
+                      <Zap size={9} fill="currentColor" /> Помог ускоритель
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -297,6 +303,7 @@ function MemberCard({ node, gPos }: { node: any; gPos: number }) {
   }
 
   const initials = node.initials ?? getInitials(node.name)
+  const showAccelBadge = node.acceleratorAssisted && (node.currentStage ?? 0) >= 2
   return (
     <div className="rounded-xl border bg-white p-2.5 shadow-sm" style={{ width: CARD_W, borderColor: '#E5DDD0' }}>
       <div className="mb-1.5 flex items-center justify-between gap-1">
@@ -313,6 +320,12 @@ function MemberCard({ node, gPos }: { node: any; gPos: number }) {
           {node.name ?? 'Участник'}
         </p>
       </div>
+      {showAccelBadge && (
+        <div className="mt-1.5 flex items-center gap-1">
+          <Zap size={8} className="shrink-0" style={{ color: '#E07840' }} />
+          <span className="text-[8px] font-bold" style={{ color: '#E07840' }}>Помог ускоритель</span>
+        </div>
+      )}
     </div>
   )
 }
