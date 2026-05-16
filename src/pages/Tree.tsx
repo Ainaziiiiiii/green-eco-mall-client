@@ -658,6 +658,7 @@ export default function TreePage() {
   const branches = branchesData?.data
   const fastStartNumber: number | null = tree?.fastStartNumber ?? meData?.data?.fastStartNumber ?? null
 
+  const isStageCompleted = tree?.stageStatus === 'COMPLETED' || tree?.status === 'COMPLETED'
   const stageGoal = currentLevel === 0 ? 1 : (currentStage % 2 === 0 ? 2 : 6)
   const total: number = stageGoal
   const filled: number = (() => {
@@ -752,7 +753,7 @@ export default function TreePage() {
                   <Zap size={11} fill="currentColor" /> Ускоритель активен
                 </span>
               )}
-              {tree?.stageStatus === 'COMPLETED' && currentLevel !== 0 && (
+              {isStageCompleted && currentLevel !== 0 && (
                 <span className="px-4 py-1.5 rounded-full bg-[#EDF5F1] text-[10px] font-bold text-[#4A7C5E] uppercase tracking-widest">
                   ● {t('dashboard.stage_completed')}
                 </span>
@@ -773,7 +774,7 @@ export default function TreePage() {
           </div>
 
           {currentLevel !== 0 && currentStage === 2 && (
-            <Stage2RaceBlock level={currentLevel} stageStatus={tree?.stageStatus} />
+            <Stage2RaceBlock level={currentLevel} stageStatus={isStageCompleted ? 'COMPLETED' : undefined} />
           )}
 
           {(isLoading || isFetching) && (
