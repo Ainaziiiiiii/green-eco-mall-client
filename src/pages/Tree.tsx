@@ -656,9 +656,24 @@ export default function TreePage() {
   const tree = treeData?.data
   const rootNode = tree?.root ?? null
   const branches = branchesData?.data
-  const filled: number = tree?.progress?.filled ?? 0
-  const total: number = tree?.progress?.total ?? (currentLevel === 0 ? 1 : 6)
   const fastStartNumber: number | null = tree?.fastStartNumber ?? meData?.data?.fastStartNumber ?? null
+
+  const stageGoal = currentLevel === 0 ? 1 : (currentStage % 2 === 0 ? 2 : 6)
+  const total: number = stageGoal
+  const filled: number = (() => {
+    if (!rootNode) return 0
+    let count = 0
+    function walk(node: any, gPos: number) {
+      if (gPos >= 1 && gPos <= stageGoal) {
+        if (!node?.isEmpty && !node?.isAccelerator && (node?.name || node?.initials)) count++
+      }
+      ;(node?.children ?? []).forEach((child: any, i: number) => {
+        walk(child, gPos === 0 ? i + 1 : gPos * 2 + i + 1)
+      })
+    }
+    walk(rootNode, 0)
+    return count
+  })()
 
   const userCurrentLevel: number = meData?.data?.currentLevel ?? dashData?.data?.currentLevel ?? 1
   const userCurrentStage: number = meData?.data?.currentStage ?? dashData?.data?.currentStage ?? 1
