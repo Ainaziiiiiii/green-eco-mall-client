@@ -277,7 +277,11 @@ function EmptySlotCard({ gPos }: { gPos: number }) {
   )
 }
 
-function MemberCard({ node, gPos }: { node: any; gPos: number }) {
+function mainTeamSize(stage: number) {
+  return stage % 2 === 0 ? 2 : 6
+}
+
+function MemberCard({ node, gPos, stage = 1 }: { node: any; gPos: number; stage?: number }) {
   if (node?.isEmpty || (!node?.name && !node?.initials && !node?.isAccelerator)) {
     return <EmptySlotCard gPos={gPos} />
   }
@@ -304,8 +308,14 @@ function MemberCard({ node, gPos }: { node: any; gPos: number }) {
 
   const initials = node.initials ?? getInitials(node.name)
   const showAccelBadge = node.acceleratorAssisted && (node.currentStage ?? 0) >= 2
+  const isMainTeam = gPos >= 1 && gPos <= mainTeamSize(stage)
   return (
-    <div className="rounded-xl border bg-white p-2.5 shadow-sm" style={{ width: CARD_W, borderColor: '#E5DDD0' }}>
+    <div className="rounded-xl border bg-white p-2.5 shadow-sm" style={{
+      width: CARD_W,
+      borderColor: isMainTeam ? '#22C55E' : '#E5DDD0',
+      backgroundColor: isMainTeam ? '#F0FDF4' : 'white',
+      boxShadow: isMainTeam ? '0 0 0 1px #22C55E, 0 2px 8px rgba(34,197,94,0.2)' : undefined,
+    }}>
       <div className="mb-1.5 flex items-center justify-between gap-1">
         <span className="rounded px-1 py-0.5 text-[8px] font-bold text-white"
           style={{ backgroundColor: '#1A1A1A' }}>Поз. {gPos}</span>
@@ -367,7 +377,7 @@ function TreeCanvas({ rootNode, level, stage, onNodeClick }: {
           >
             {n.depth === 0
               ? <RootCard node={n.node} level={level} stage={stage} />
-              : <MemberCard node={n.node} gPos={n.gPos} />
+              : <MemberCard node={n.node} gPos={n.gPos} stage={stage} />
             }
           </div>
         )
