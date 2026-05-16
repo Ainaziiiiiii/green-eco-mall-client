@@ -307,7 +307,7 @@ function MemberCard({ node, gPos, stage = 1 }: { node: any; gPos: number; stage?
   }
 
   const initials = node.initials ?? getInitials(node.name)
-  const showAccelBadge = node.acceleratorAssisted && (node.currentStage ?? 0) >= 2
+  const showAccelBadge = !!node.acceleratorAssisted
   const isMainTeam = gPos >= 1 && gPos <= mainTeamSize(stage)
   return (
     <div className="rounded-xl border bg-white shadow-sm overflow-hidden" style={{
