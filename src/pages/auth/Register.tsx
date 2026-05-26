@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Copy, Check, AlertCircle, Smartphone, UserCheck } from 'lucide-react';
+import { ArrowLeft, Copy, Check, AlertCircle, Smartphone, UserCheck, Eye, EyeOff } from 'lucide-react';
 import AuthLayout from './AuthLayout';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
@@ -55,6 +55,43 @@ function InputField({
         className="w-full h-14 px-5 bg-[#F8F5F0] border border-[#E5DDD0] rounded-2xl text-[15px] font-bold text-[#1A1A1A] placeholder:text-[#9B9589]/40 focus:outline-none focus:border-[#1B2B20] transition-colors"
       />
       {sub && <p className="text-[9px] font-medium text-[#9B9589] leading-tight px-1">{sub}</p>}
+    </div>
+  );
+}
+
+function PasswordField({
+  label,
+  placeholder,
+  value,
+  onChange,
+}: {
+  label: string;
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="space-y-2">
+      <label className="text-[10px] font-bold text-[#9B9589] uppercase tracking-widest block ml-1">
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          type={show ? 'text' : 'password'}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full h-14 px-5 pr-12 bg-[#F8F5F0] border border-[#E5DDD0] rounded-2xl text-[15px] font-bold text-[#1A1A1A] placeholder:text-[#9B9589]/40 focus:outline-none focus:border-[#1B2B20] transition-colors"
+        />
+        <button
+          type="button"
+          onClick={() => setShow((s) => !s)}
+          className="absolute right-4 top-1/2 -translate-y-1/2 text-[#9B9589] hover:text-[#1A1A1A] transition-colors"
+        >
+          {show ? <EyeOff size={18} /> : <Eye size={18} />}
+        </button>
+      </div>
     </div>
   );
 }
@@ -357,16 +394,14 @@ function Step2({
           onChange={setCodeWord}
           sub="Используется для восстановления пароля. Запомните его."
         />
-        <InputField
+        <PasswordField
           label={t('auth.password_label')}
-          type="password"
           placeholder="........"
           value={password}
           onChange={setPassword}
         />
-        <InputField
+        <PasswordField
           label={t('auth.repeat_password')}
-          type="password"
           placeholder="........"
           value={confirmPassword}
           onChange={setConfirmPassword}

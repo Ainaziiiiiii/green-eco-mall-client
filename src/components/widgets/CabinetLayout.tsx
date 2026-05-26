@@ -38,6 +38,7 @@ export function CabinetLayout({ children, title }: CabinetLayoutProps) {
   const unreadCount: number = (notifData?.data ?? []).filter((n: any) => !n.isRead && !n.read).length;
   const newsUnread: number = newsCountData?.data?.count ?? newsCountData?.count ?? 0;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
 
   const handleLogout = () => {
     logout();
@@ -138,7 +139,7 @@ export function CabinetLayout({ children, title }: CabinetLayoutProps) {
 
         <div className="mt-auto space-y-6">
           <button
-            onClick={handleLogout}
+            onClick={() => setShowLogoutConfirm(true)}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/50 hover:text-white transition-all"
           >
             <LogOut size={18} />
@@ -203,6 +204,44 @@ export function CabinetLayout({ children, title }: CabinetLayoutProps) {
 
         {children}
       </main>
+
+      {/* Logout confirmation */}
+      {showLogoutConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)' }}
+          onClick={() => setShowLogoutConfirm(false)}
+        >
+          <div
+            className="w-full max-w-xs rounded-3xl bg-white shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 text-center space-y-4">
+              <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center mx-auto">
+                <LogOut size={24} className="text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-[#1A1A1A]">Выйти из аккаунта?</h3>
+                <p className="text-sm text-[#9B9589] mt-1">Вы уверены что хотите выйти?</p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="flex-1 h-11 rounded-2xl border border-[#E5DDD0] text-[12px] font-bold text-[#9B9589] hover:bg-[#F8F5F0] transition-colors uppercase tracking-widest"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="flex-1 h-11 rounded-2xl bg-red-500 text-white text-[12px] font-bold hover:bg-red-600 transition-colors uppercase tracking-widest"
+                >
+                  Выйти
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

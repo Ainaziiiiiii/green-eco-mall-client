@@ -1,8 +1,8 @@
-import React, { useState } from 'react'
-import { Zap, X, Copy, Check, Users, GitBranch } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Zap, X, Copy, Check, Users, GitBranch, Trophy } from 'lucide-react'
 import { CabinetLayout } from '#widgets/CabinetLayout'
 import { useTranslation } from 'react-i18next'
-import { useGetMyTreeQuery, useGetTreeBranchesQuery, useGetTreeMemberQuery, useGetStage2RaceQuery } from '../api/treeApi'
+import { useGetMyTreeQuery, useGetTreeBranchesQuery, useGetTreeMemberQuery, useGetAcceleratorHistoryQuery, useGetStage2RaceQuery } from '../api/treeApi'
 import { useGetDashboardQuery } from '../api/dashboardApi'
 import { useGetMeQuery } from '../api/authApi'
 
@@ -38,7 +38,8 @@ interface LayoutNode {
   cx: number    // horizontal center
   y: number     // top edge
   depth: number
-  gPos: number  // global position (0 = root)
+  gPos: number  // binary tree index (internal layout use)
+  seqPos: number // sequential BFS position among non-empty nodes (1-based; 0 = root or empty)
 }
 
 interface Edge { x1: number; y1: number; x2: number; y2: number }
@@ -62,14 +63,12 @@ function buildLayout(root: any): { nodes: LayoutNode[]; canvasW: number; canvasH
 
   function walk(node: any, leftLeaf: number, d: number, gPos: number) {
     const lc = leafCount(node)
-    // Center x = left edge + half the occupied width (including all gaps between leaves)
     const cx = PAD + leftLeaf * H_UNIT + (lc * H_UNIT - (H_UNIT - CARD_W)) / 2
     const y = PAD + d * V_STEP
-    nodes.push({ node, cx, y, depth: d, gPos })
+    nodes.push({ node, cx, y, depth: d, gPos, seqPos: 0 })
     if (node?.children?.length) {
       let cl = leftLeaf
       ;(node.children as any[]).forEach((child: any, i: number) => {
-        // Standard binary tree numbering: left=2g+1, right=2g+2 (g=0 for root)
         walk(child, cl, d + 1, gPos === 0 ? i + 1 : gPos * 2 + i + 1)
         cl += leafCount(child)
       })
@@ -77,6 +76,15 @@ function buildLayout(root: any): { nodes: LayoutNode[]; canvasW: number; canvasH
   }
 
   walk(root, 0, 0, 0)
+
+  // Assign sequential BFS positions to non-empty, non-root nodes
+  const nonRoot = nodes.filter(n => n.depth > 0).sort((a, b) => a.depth - b.depth || a.cx - b.cx)
+  let counter = 0
+  for (const ln of nonRoot) {
+    const isEmpty = ln.node?.isEmpty || (!ln.node?.name && !ln.node?.initials && !ln.node?.isAccelerator)
+    ln.seqPos = isEmpty ? 0 : ++counter
+  }
+
   return { nodes, canvasW, canvasH }
 }
 
@@ -93,6 +101,46 @@ function buildEdges(nodes: LayoutNode[]): Edge[] {
 }
 
 // ─── Member Modal ─────────────────────────────────────────────────────────────
+
+function AcceleratorHistory({ userId }: { userId: string }) {
+  const { data, isLoading } = useGetAcceleratorHistoryQuery(userId)
+  const history: any[] = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : []
+
+  if (isLoading) return (
+    <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(224,120,64,0.08)' }}>
+      <p className="text-[10px] font-bold text-[#E07840] uppercase tracking-widest animate-pulse">Загрузка...</p>
+    </div>
+  )
+
+  if (!history.length) return null
+
+  return (
+    <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(224,120,64,0.08)', borderColor: 'rgba(224,120,64,0.2)', border: '1px solid' }}>
+      <div className="flex items-center gap-2 mb-3">
+        <Zap size={12} fill="currentColor" style={{ color: '#E07840' }} />
+        <p className="text-[10px] font-bold text-[#E07840] uppercase tracking-widest">Помогли ускорители</p>
+      </div>
+      <div className="space-y-2">
+        {history.map((a: any) => (
+          <div key={a.acceleratorOwnerUserId} className="flex items-center gap-3">
+            <div
+              className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+              style={{ backgroundColor: colorForInitials(a.initials) }}
+            >
+              {a.initials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[12px] font-bold text-[#1A1A1A] leading-tight truncate">{a.name}</p>
+              <p className="text-[10px] text-[#9B9589]">
+                Долбоор {a.level} · {a.completedAt ? new Date(a.completedAt).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 function MemberModal({ userId, onClose }: { userId: string; onClose: () => void }) {
   const [copied, setCopied] = useState(false)
@@ -193,6 +241,11 @@ function MemberModal({ userId, onClose }: { userId: string; onClose: () => void 
             </div>
           )}
 
+          {/* Accelerator history */}
+          {member?.acceleratorAssisted && (member?.currentStage ?? 0) >= 2 && (
+            <AcceleratorHistory userId={userId} />
+          )}
+
           {/* Referral link */}
           {member?.referralLink && (
             <div className="rounded-2xl p-4" style={{ backgroundColor: '#F8F5F0' }}>
@@ -239,7 +292,7 @@ function RootCard({ node, level, stage }: { node: any; level: number; stage: num
       <div className="mb-2">
         <span className="rounded px-1.5 py-0.5 text-[9px] font-bold"
           style={{ backgroundColor: 'rgba(224,120,64,0.2)', color: '#E07840' }}>
-          {t('dashboard.legend_you').toUpperCase()} · ROOT
+ВЫ · КАПИТАН
         </span>
       </div>
       <div className="flex items-center gap-2">
@@ -262,11 +315,7 @@ function EmptySlotCard({ gPos }: { gPos: number }) {
   return (
     <div className="rounded-xl border-2 border-dashed p-2.5"
       style={{ width: CARD_W, borderColor: '#D4CFC4', backgroundColor: '#F8F5F0' }}>
-      <div className="mb-1.5 flex items-center justify-between gap-1">
-        <span className="rounded px-1 py-0.5 text-[8px] font-bold"
-          style={{ backgroundColor: '#E5DDD0', color: '#9B9589' }}>Поз. {gPos}</span>
-      </div>
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1.5 mt-1">
         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-dashed"
           style={{ borderColor: '#D4CFC4' }}>
           <span style={{ color: '#C5BDB3', fontSize: 14, lineHeight: 1 }}>+</span>
@@ -281,18 +330,19 @@ function mainTeamSize(stage: number) {
   return stage % 2 === 0 ? 2 : 6
 }
 
-function MemberCard({ node, gPos, stage = 1 }: { node: any; gPos: number; stage?: number }) {
+function MemberCard({ node, gPos, seqPos, stage = 1 }: { node: any; gPos: number; seqPos: number; stage?: number }) {
   if (node?.isEmpty || (!node?.name && !node?.initials && !node?.isAccelerator)) {
     return <EmptySlotCard gPos={gPos} />
   }
 
   if (node?.isAccelerator) {
+    const accelName = node.name
     return (
       <div className="rounded-xl border-2 border-dashed p-2.5"
         style={{ width: CARD_W, borderColor: 'rgba(224,120,64,0.5)', backgroundColor: 'rgba(254,243,236,0.6)' }}>
         <div className="mb-1.5 flex items-center justify-between gap-1">
           <span className="rounded px-1 py-0.5 text-[8px] font-bold text-white"
-            style={{ backgroundColor: '#E07840' }}>Поз. {gPos}</span>
+            style={{ backgroundColor: '#E07840' }}>Поз. {seqPos}</span>
           <span className="text-[8px] font-bold" style={{ color: '#E07840' }}>УСКОР.</span>
         </div>
         <div className="flex items-center gap-1.5">
@@ -300,7 +350,12 @@ function MemberCard({ node, gPos, stage = 1 }: { node: any; gPos: number; stage?
             style={{ borderColor: 'rgba(224,120,64,0.4)', color: '#E07840' }}>
             <Zap size={13} fill="currentColor" />
           </div>
-          <p className="text-[11px] font-bold" style={{ color: '#E07840' }}>Ускоритель</p>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-bold leading-tight" style={{ color: '#E07840' }}>Ускоритель</p>
+            {accelName && (
+              <p className="text-[9px] font-medium leading-tight truncate mt-0.5" style={{ color: '#C46B3A' }}>{accelName}</p>
+            )}
+          </div>
         </div>
       </div>
     )
@@ -308,35 +363,37 @@ function MemberCard({ node, gPos, stage = 1 }: { node: any; gPos: number; stage?
 
   const initials = node.initials ?? getInitials(node.name)
   const showAccelBadge = !!node.acceleratorAssisted
+  // Main team = structural positions 1..mainTeamSize based on binary tree index (depth 1 + depth 2)
   const isMainTeam = gPos >= 1 && gPos <= mainTeamSize(stage)
   return (
-    <div className="rounded-xl border bg-white shadow-sm overflow-hidden" style={{
-      width: CARD_W,
-      borderColor: isMainTeam ? '#22C55E' : '#E5DDD0',
-      backgroundColor: isMainTeam ? '#F0FDF4' : 'white',
-      boxShadow: isMainTeam ? '0 0 0 1px #22C55E, 0 2px 8px rgba(34,197,94,0.2)' : undefined,
-    }}>
+    <div className="relative" style={{ width: CARD_W }}>
       {showAccelBadge && (
-        <div className="flex items-center justify-center gap-1 py-0.5"
+        <div className="absolute -top-2 -right-2 z-20 w-5 h-5 rounded-full flex items-center justify-center shadow-md"
           style={{ backgroundColor: '#E07840' }}>
-          <Zap size={7} fill="white" color="white" />
-          <span className="text-[7px] font-black text-white tracking-wide">ПОМОГ УСКОРИТЕЛЬ</span>
+          <Zap size={10} fill="white" color="white" />
         </div>
       )}
-      <div className="p-2.5">
-        <div className="mb-1.5 flex items-center justify-between gap-1">
-          <span className="rounded px-1 py-0.5 text-[8px] font-bold text-white"
-            style={{ backgroundColor: '#1A1A1A' }}>Поз. {gPos}</span>
-          <StatusBadge status={node.stageStatus ?? node.status} />
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
-            style={{ backgroundColor: colorForInitials(initials) }}>
-            {initials}
+      <div className="rounded-xl border bg-white shadow-sm overflow-hidden" style={{
+        height: CARD_H,
+        borderColor: isMainTeam ? '#22C55E' : '#E5DDD0',
+        backgroundColor: isMainTeam ? '#F0FDF4' : 'white',
+        boxShadow: isMainTeam ? '0 0 0 1px #22C55E, 0 2px 8px rgba(34,197,94,0.2)' : undefined,
+      }}>
+        <div className="p-2.5">
+          <div className="mb-1.5 flex items-center justify-between gap-1">
+            <span className="rounded px-1 py-0.5 text-[8px] font-bold text-white"
+              style={{ backgroundColor: '#1A1A1A' }}>Поз. {seqPos}</span>
+            <StatusBadge status={node.stageStatus ?? node.status} />
           </div>
-          <p className="text-[11px] font-semibold leading-tight line-clamp-2 min-w-0 flex-1" style={{ color: '#1A1A1A' }}>
-            {node.name ?? 'Участник'}
-          </p>
+          <div className="flex items-center gap-1.5">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+              style={{ backgroundColor: colorForInitials(initials) }}>
+              {initials}
+            </div>
+            <p className="text-[11px] font-semibold leading-tight line-clamp-2 min-w-0 flex-1" style={{ color: '#1A1A1A' }}>
+              {node.name ?? 'Участник'}
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -380,7 +437,7 @@ function TreeCanvas({ rootNode, level, stage, onNodeClick }: {
           >
             {n.depth === 0
               ? <RootCard node={n.node} level={level} stage={stage} />
-              : <MemberCard node={n.node} gPos={n.gPos} stage={stage} />
+              : <MemberCard node={n.node} gPos={n.gPos} seqPos={n.seqPos} stage={stage} />
             }
           </div>
         )
@@ -629,6 +686,151 @@ function Stage2RaceBlock({ level, stageStatus }: { level: number; stageStatus?: 
   )
 }
 
+// ─── Stage rewards ────────────────────────────────────────────────────────────
+
+const STAGE_REWARDS: Record<string, { title: string; reward: string; icon: string; next?: string }> = {
+  '1_1': { icon: '🎉', title: '5 000 сом — ваши!',
+    reward: 'Вы сделали это! Первый этап позади, и 5 000 сом уже летят к вам. Команда гордится вами — вы только начали, а уже зарабатываете!',
+    next: 'Ещё чуть-чуть — и 11 000 сом станут вашими. Вы уже на пути!' },
+  '1_2': { icon: '💰', title: '11 000 сом — ваши!',
+    reward: 'Так держать! Вы набираете темп, и деньги это подтверждают — 11 000 сом на вашем счету. Ваша команда работает, и вы вместе растёте!',
+    next: 'Следующий шаг — 25 000 сом. Представьте, что будете с ними делать!' },
+  '1_3': { icon: '🏆', title: '25 000 сом — ваши!',
+    reward: 'Вы уже зарабатываете серьёзные деньги! 25 000 сом — это не случайность, это результат вашего труда и вашей команды. Вы молодец!',
+    next: 'Один шаг — и вы выходите на новый уровень! Там вас ждут ещё большие возможности + подарок от компании на $500.' },
+  '1_4': { icon: '🚀', title: 'Добро пожаловать на 2 уровень!',
+    reward: 'Вы перешагнули важный рубеж! Переход на 2 уровень — бесплатно, плюс продукция от компании на $500 — это ваш заслуженный подарок. Вы вдохновляете!',
+    next: 'На 2 уровне вас ждут 11 000 сом с первого же этапа. Старт уже близко!' },
+  '2_1': { icon: '🎉', title: '11 000 сом — ваши!',
+    reward: 'Новый уровень — новые деньги! 11 000 сом с первого этапа 2 уровня. Вы растёте быстрее, чем думали, правда?',
+    next: 'Следующий этап принесёт вам ускоритель и приятный подарок от компании. Не останавливайтесь!' },
+  '2_2': { icon: '⚡', title: 'Ускоритель и подарок!',
+    reward: 'Компания поддерживает вас — вы получаете ускоритель, который помогает команде расти быстрее, плюс бесплатная продукция в подарок. Вы заслужили это!',
+    next: 'Впереди — 100 000 сом. Да, целых сто тысяч. Вы можете!' },
+  '2_3': { icon: '💰', title: '100 000 сом — ваши!',
+    reward: 'СТО ТЫСЯЧ СОМ! Вы это сделали. Это уже другая жизнь, и вы сами её создали — своим трудом и своей командой. Снимаем шляпу!',
+    next: 'Финал 2 уровня совсем рядом — там вас ждёт переход на 3 уровень и продукция на $2 000!' },
+  '2_4': { icon: '🚀', title: 'Добро пожаловать на 3 уровень!',
+    reward: '3 уровень открыт — бесплатно! Плюс продукция на $2 000 в подарок. Вы строите нечто большое, и это только середина пути.',
+    next: 'На 3 уровне начинается настоящий масштаб — 44 000 сом с первого этапа!' },
+  '3_1': { icon: '💰', title: '44 000 сом — ваши!',
+    reward: 'Сорок четыре тысячи! Вы на 3 уровне и уже зарабатываете по-крупному. Ваша команда растёт, а вместе с ней — и ваш доход.',
+    next: 'Ещё один этап — ещё 44 000 сом. Держите ритм!' },
+  '3_2': { icon: '💰', title: 'Снова 44 000 сом!',
+    reward: 'Ещё раз 44 000 сом — потому что вы не останавливаетесь. Ваша настойчивость приносит реальные плоды, и команда видит ваш пример!',
+    next: 'Следующий этап — это уже автомобиль за $12 000. Представляете? Скоро!' },
+  '3_3': { icon: '🚗', title: 'Автомобиль $12 000!',
+    reward: 'АВТОМОБИЛЬ! Вы заработали машину своим умом и своей командой. Это не сон — это ваша реальность. Езжайте с гордостью!',
+    next: 'Последний этап 3 уровня — и вы на пути к 4 уровню + продукция на $10 000!' },
+  '3_4': { icon: '🚀', title: 'Добро пожаловать на 4 уровень!',
+    reward: 'Вы на 4 уровне — элита программы! Переход бесплатный, и продукция на $10 000 уже ждёт вас. Вы вдохновляете всех вокруг.',
+    next: 'Финальный уровень, финальные победы — 220 000 сом с первого этапа!' },
+  '4_1': { icon: '💰', title: '220 000 сом — ваши!',
+    reward: 'Двести двадцать тысяч! На 4 уровне всё по-другому. Ваш труд конвертируется в настоящие деньги. Вы — профессионал.',
+    next: 'Следующий этап — снова 220 000 сом. Двигайтесь, финиш близко!' },
+  '4_2': { icon: '💰', title: 'Снова 220 000 сом!',
+    reward: 'Вы снова доказали, что умеете побеждать. 220 000 сом — заслуженно и честно. Ваша команда — ваша сила.',
+    next: 'Предпоследний шаг — автомобиль за $25 000. Вы почти там!' },
+  '4_3': { icon: '🚗', title: 'Автомобиль $25 000!',
+    reward: 'Ещё один автомобиль — теперь за $25 000! Вы не просто участник, вы лидер. Таких людей единицы, и вы один из них.',
+    next: 'Остался последний шаг. Там вас ждёт КВАРТИРА. Не сдавайтесь — вы уже у цели!' },
+  '4_4': { icon: '🏠', title: 'Квартира $80 000!',
+    reward: 'ВЫ СДЕЛАЛИ ЭТО! Квартира стоимостью $80 000 — ваша заслуженная награда. Вы прошли весь путь от начала до конца. Это история, которую вы расскажете своим детям.' },
+}
+
+function CongratsModal({ level, stage, onClose }: { level: number; stage: number; onClose: () => void }) {
+  const reward = STAGE_REWARDS[`${level}_${stage}`]
+  if (!reward) return null
+  const isFinal = level === 4 && stage === 4
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-sm rounded-3xl bg-white shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="relative flex flex-col items-center justify-center pt-10 pb-8 px-6 text-center"
+          style={{ background: 'linear-gradient(150deg, #1B2B20 0%, #2C4A3E 60%, #3a6b54 100%)' }}>
+          {/* Stars decoration */}
+          <div className="absolute top-4 left-5 text-yellow-300 text-lg opacity-60">✦</div>
+          <div className="absolute top-6 right-8 text-yellow-300 text-sm opacity-40">✦</div>
+          <div className="absolute bottom-6 left-10 text-yellow-300 text-xs opacity-30">✦</div>
+
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)' }}
+          >
+            <X size={15} />
+          </button>
+
+          {/* Badge */}
+          <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl mb-4 shadow-xl"
+            style={{ backgroundColor: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(4px)' }}>
+            {reward.icon}
+          </div>
+
+          <div className="flex items-center gap-2 mb-2">
+            <Trophy size={12} className="text-yellow-400" />
+            <span className="text-[10px] font-black text-yellow-400 uppercase tracking-[0.25em]">Поздравляем!</span>
+            <Trophy size={12} className="text-yellow-400" />
+          </div>
+
+          <p className="text-[10px] font-bold uppercase tracking-widest mb-1"
+            style={{ color: 'rgba(255,255,255,0.45)' }}>
+            Долбоор {level} · Этап {stage} завершён
+          </p>
+          <h2 className="text-2xl font-black text-white leading-tight">{reward.title}</h2>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {/* Current reward */}
+          <div className="rounded-2xl p-4" style={{ backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0' }}>
+            <p className="text-[10px] font-bold text-[#4A7C5E] uppercase tracking-widest mb-1">Ваша награда</p>
+            <p className="text-sm font-bold text-[#1A1A1A] leading-relaxed">{reward.reward}</p>
+          </div>
+
+          {/* Next stage preview */}
+          {reward.next && (
+            <div className="rounded-2xl p-4" style={{ backgroundColor: '#FFF8F0', border: '1px solid #FED7AA' }}>
+              <p className="text-[10px] font-bold text-[#E07840] uppercase tracking-widest mb-1">Впереди</p>
+              <p className="text-sm font-bold text-[#1A1A1A]">{reward.next}</p>
+            </div>
+          )}
+
+          {/* Final goal teaser */}
+          {!isFinal && (
+            <div className="rounded-2xl p-4 text-center" style={{ backgroundColor: '#F8F5F0' }}>
+              <p className="text-[10px] font-bold text-[#9B9589] uppercase tracking-widest mb-0.5">Финальная цель</p>
+              <p className="text-sm font-bold text-[#1A1A1A]">🏠 Квартира стоимостью $80 000</p>
+            </div>
+          )}
+
+          {isFinal && (
+            <div className="rounded-2xl p-4 text-center" style={{ background: 'linear-gradient(135deg, #1B2B20, #2C4A3E)' }}>
+              <p className="text-white font-bold text-sm">🌟 Вы достигли вершины программы!</p>
+              <p className="text-[11px] mt-1" style={{ color: 'rgba(255,255,255,0.6)' }}>Это невероятное достижение!</p>
+            </div>
+          )}
+
+          <button
+            onClick={onClose}
+            className="w-full h-12 rounded-2xl text-white text-[12px] font-bold uppercase tracking-widest transition-all hover:opacity-90"
+            style={{ backgroundColor: '#1B2B20' }}
+          >
+            Отлично, продолжаю! →
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function TreePage() {
@@ -642,6 +844,7 @@ export default function TreePage() {
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null)
   const [selectedStage, setSelectedStage] = useState<number | null>(null)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [congratsTarget, setCongratsTarget] = useState<{ level: number; stage: number } | null>(null)
 
   const defaultLevel = isFastStart ? 0 : (dashData?.data?.currentLevel ?? 1)
   const currentLevel = selectedLevel ?? defaultLevel
@@ -681,6 +884,35 @@ export default function TreePage() {
     tree?.status === 'COMPLETED' ||
     (total > 0 && filled >= total)
 
+  // Show modal for the most recently completed stage on first load
+  useEffect(() => {
+    const lvl: number = meData?.data?.currentLevel ?? dashData?.data?.currentLevel ?? 0
+    const stg: number = meData?.data?.currentStage ?? dashData?.data?.currentStage ?? 0
+    if (!lvl || !stg) return
+
+    // Walk backwards from current position to find first unacknowledged completed stage
+    let checkLvl = lvl
+    let checkStg = stg - 1
+    if (checkStg < 1) { checkLvl = lvl - 1; checkStg = 4 }
+    if (checkLvl < 1) return
+
+    const key = `congrats_L${checkLvl}_S${checkStg}`
+    if (!localStorage.getItem(key) && STAGE_REWARDS[`${checkLvl}_${checkStg}`]) {
+      localStorage.setItem(key, '1')
+      setCongratsTarget({ level: checkLvl, stage: checkStg })
+    }
+  }, [meData?.data?.currentLevel, meData?.data?.currentStage, dashData?.data?.currentLevel, dashData?.data?.currentStage])
+
+  // Show when currently viewed stage becomes completed
+  useEffect(() => {
+    if (!isStageCompleted || currentLevel === 0) return
+    const key = `congrats_L${currentLevel}_S${currentStage}`
+    if (!localStorage.getItem(key)) {
+      localStorage.setItem(key, '1')
+      setCongratsTarget({ level: currentLevel, stage: currentStage })
+    }
+  }, [isStageCompleted, currentLevel, currentStage])
+
   const userCurrentLevel: number = meData?.data?.currentLevel ?? dashData?.data?.currentLevel ?? 1
   const userCurrentStage: number = meData?.data?.currentStage ?? dashData?.data?.currentStage ?? 1
   const stageNotStarted = currentLevel !== 0 && (
@@ -692,6 +924,9 @@ export default function TreePage() {
     <CabinetLayout title={t('dashboard.tree_title')}>
       {selectedUserId && (
         <MemberModal userId={selectedUserId} onClose={() => setSelectedUserId(null)} />
+      )}
+      {congratsTarget && (
+        <CongratsModal level={congratsTarget.level} stage={congratsTarget.stage} onClose={() => setCongratsTarget(null)} />
       )}
       <div className="space-y-6">
 
@@ -752,7 +987,7 @@ export default function TreePage() {
                   ● Готов к переходу
                 </span>
               )}
-              {tree?.accelerator?.active && (
+              {tree?.accelerator?.active && !isStageCompleted && (
                 <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest"
                   style={{ backgroundColor: 'rgba(224,120,64,0.12)', color: '#E07840' }}>
                   <Zap size={11} fill="currentColor" /> Ускоритель активен

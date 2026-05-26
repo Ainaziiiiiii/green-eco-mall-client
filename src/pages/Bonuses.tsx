@@ -120,7 +120,7 @@ export default function BonusesPage() {
         {/* Table */}
         <div className="bg-white border border-[#E5DDD0] rounded-3xl overflow-hidden shadow-sm">
           {/* Desktop header */}
-          <div className="hidden md:grid grid-cols-[1fr_1fr_1fr_auto_auto] gap-4 p-4 border-b border-[#E5DDD0] bg-[#F1EDE4]">
+          <div className="hidden md:grid grid-cols-[140px_0.7fr_1fr_100px_150px] gap-4 p-4 border-b border-[#E5DDD0] bg-[#F1EDE4]">
             {['ДАТА', 'ТИП', 'ОПИСАНИЕ', 'СУММА', 'СТАТУС'].map((h) => (
               <span key={h} className="text-[9px] font-bold text-[#9B9589] uppercase tracking-widest">{h}</span>
             ))}
@@ -143,7 +143,7 @@ export default function BonusesPage() {
             return (
               <div key={bonus.id}>
                 {/* Desktop */}
-                <div className="hidden md:grid grid-cols-[1fr_1fr_1fr_auto_auto] gap-4 items-center p-4 border-b border-[#F0EBE0] last:border-0 hover:bg-[#FAFAF8]">
+                <div className="hidden md:grid grid-cols-[140px_0.7fr_1fr_100px_150px] gap-4 items-center p-4 border-b border-[#F0EBE0] last:border-0 hover:bg-[#FAFAF8]">
                   <span className="text-xs text-[#9B9589]">
                     {new Date(bonus.createdAt).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                   </span>
@@ -151,11 +151,11 @@ export default function BonusesPage() {
                   <span className="text-xs text-[#9B9589] truncate">
                     {bonus.description || (bonus.fromUserName ? `от ${bonus.fromUserName}` : '—')}
                   </span>
-                  <span className="text-xs font-black text-[#1A1A1A] text-right whitespace-nowrap">
+                  <span className="text-xs font-black text-[#1A1A1A] whitespace-nowrap">
                     {bonus.amount.toLocaleString('ru-RU')} сом
                   </span>
-                  <span className={cn('inline-block rounded-full px-3 py-1 text-[9px] font-black tracking-widest whitespace-nowrap', st.cls)}>
-                    ● {st.label.toUpperCase()}
+                  <span className={cn('inline-block rounded-full px-3 py-1 text-[11px] font-black tracking-wide whitespace-nowrap', st.cls)}>
+                    ● {st.label}
                   </span>
                 </div>
 

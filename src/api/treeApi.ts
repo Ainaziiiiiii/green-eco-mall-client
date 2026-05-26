@@ -21,6 +21,9 @@ export const treeApi = baseApi.injectEndpoints({
     getTreeMember: builder.query({
       query: (userId: string) => `/api/tree/member/${userId}`,
     }),
+    getAcceleratorHistory: builder.query({
+      query: (userId: string) => `/api/tree/member/${userId}/accelerator-history`,
+    }),
     getStage2Race: builder.query({
       query: (level: number) => `/api/tree/stage2/race?level=${level}`,
       providesTags: ['Tree'],
@@ -34,5 +37,6 @@ export const {
   useGetTreeBranchesQuery,
   useGetTreeActivityQuery,
   useGetTreeMemberQuery,
+  useGetAcceleratorHistoryQuery,
   useGetStage2RaceQuery,
 } = treeApi;

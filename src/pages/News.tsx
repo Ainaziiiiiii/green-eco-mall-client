@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, Pin, Wallet, Gift, Layers, BarChart3, Package, Users, MessageSquare, Trash2, Send } from 'lucide-react';
 import { CabinetLayout } from '#widgets/CabinetLayout';
 import { useGetNewsQuery, useGetNewsByIdQuery, useGetNewsCommentsQuery, useAddCommentMutation, useDeleteCommentMutation } from '../api/newsApi';
+import { useDispatch } from 'react-redux';
+import { baseApi } from '../api/baseApi';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -281,8 +283,18 @@ function NewsModal({ id, onClose }: { id: string; onClose: () => void }) {
 
 export default function NewsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const dispatch = useDispatch();
 
   const { data, isLoading } = useGetNewsQuery({});
+
+  useEffect(() => {
+    dispatch(
+      baseApi.util.updateQueryData('getNewsUnreadCount', undefined, (draft: any) => {
+        if (draft?.data) draft.data.count = 0;
+        if (draft?.count !== undefined) draft.count = 0;
+      })
+    );
+  }, [dispatch]);
   const items: any[] = data?.data?.content ?? data?.data ?? data?.content ?? [];
 
   const pinned = items.find((i: any) => i.isPinned || i.pinned);
