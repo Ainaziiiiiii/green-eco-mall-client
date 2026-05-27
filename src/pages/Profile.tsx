@@ -39,6 +39,7 @@ function CopyRow({ label, value }: { label: string; value: string }) {
   )
 }
 
+
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   ACTIVE: { label: 'Активен', color: '#4A7C5E' },
   PENDING: { label: 'Ожидает оплаты', color: '#E07840' },

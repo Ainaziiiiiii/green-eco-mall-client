@@ -7,6 +7,7 @@ import WithdrawPage from './pages/Withdraw';
 import NotificationsPage from './pages/Notifications';
 import NewsPage from './pages/News';
 import ProfilePage from './pages/Profile';
+import SecurityPage from './pages/Security';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import { useAuth } from './providers/AuthProvider';
@@ -46,6 +47,7 @@ export default function App() {
         <Route path="/news" element={<RequireAuth><NewsPage /></RequireAuth>} />
         <Route path="/notifications" element={<RequireAuth><NotificationsPage /></RequireAuth>} />
         <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+        <Route path="/security" element={<RequireAuth><SecurityPage /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>

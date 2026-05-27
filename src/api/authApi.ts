@@ -70,6 +70,10 @@ export const authApi = baseApi.injectEndpoints({
     >({
       query: (referralCode) => `/api/auth/inviter?referralCode=${referralCode}`,
     }),
+    getLoginHistory: builder.query<any, { page?: number; size?: number }>({
+      query: ({ page = 0, size = 20 } = {}) =>
+        `/api/user/login-history?page=${page}&size=${size}`,
+    }),
   }),
 });
 
@@ -83,4 +87,5 @@ export const {
   useForgotPasswordMutation,
   useResetPasswordMutation,
   useGetInviterQuery,
+  useGetLoginHistoryQuery,
 } = authApi;

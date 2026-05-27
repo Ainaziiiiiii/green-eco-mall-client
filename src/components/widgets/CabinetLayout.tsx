@@ -12,7 +12,8 @@ import {
   User as UserIcon,
   LogOut,
   Menu,
-  X
+  X,
+  Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -54,6 +55,7 @@ export function CabinetLayout({ children, title }: CabinetLayoutProps) {
     { name: 'Новости', icon: Newspaper, section: 'АККАУНТ', path: '/news' },
     { name: t('common.notifications'), icon: Bell, section: 'АККАУНТ', path: '/notifications' },
     { name: t('common.profile'), icon: UserIcon, section: 'АККАУНТ', path: '/profile' },
+    { name: 'Безопасность', icon: Shield, section: 'АККАУНТ', path: '/security' },
   ];
 
   const isActive = (path: string) => {
