@@ -7,14 +7,6 @@ const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> =
   BLOCKED:  { label: 'Заблокирован',     color: '#D04040', bg: '#FEECEC' },
 }
 
-const PLAN_LABEL: Record<string, string> = {
-  FAST_START: 'Fast Start',
-  STANDARD:   'Standard',
-  LEVEL_2:    'Уровень 2',
-  LEVEL_3:    'Уровень 3',
-  LEVEL_4:    'Уровень 4',
-}
-
 function getInitials(firstName?: string, lastName?: string) {
   return ((firstName?.[0] ?? '') + (lastName?.[0] ?? '')).toUpperCase() || '??'
 }
@@ -99,7 +91,6 @@ export default function ReferralsPage() {
               const initials = getInitials(r.firstName, r.lastName)
               const avatarColor = colorForInitials(initials)
               const st = STATUS_CFG[r.accountStatus] ?? STATUS_CFG.PENDING
-              const plan = PLAN_LABEL[r.registrationPlan] ?? r.registrationPlan ?? '—'
               const regDate = r.createdAt
                 ? new Date(r.createdAt).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })
                 : '—'
@@ -127,11 +118,16 @@ export default function ReferralsPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                      <span className="text-[11px] text-[#9B9589]">{r.phone}</span>
                       <span className="text-[11px] font-bold text-[#1A1A1A]">
                         Ур. {r.currentLevel} · Эт. {r.currentStage}
                       </span>
-                      <span className="text-[11px] text-[#9B9589]">{plan}</span>
+                      {r.bonusReceived ? (
+                        <span className="text-[11px] font-bold text-[#4A7C5E]">
+                          +{(r.bonusAmount ?? 0).toLocaleString('ru-RU')} сом
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-[#C5BDB3]">бонус не получен</span>
+                      )}
                     </div>
                   </div>
 
