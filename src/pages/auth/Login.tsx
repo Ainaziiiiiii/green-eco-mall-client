@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff, AlertCircle, QrCode, ArrowLeft, Check } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, ArrowLeft, Check } from 'lucide-react';
 import AuthLayout from './AuthLayout';
 import { LanguageSwitcher } from '../../components/LanguageSwitcher';
 import { useLoginMutation, useForgotPasswordMutation, useResetPasswordMutation } from '../../api/authApi';
 import { useAuth } from '../../providers/AuthProvider';
-import { useCreateQrMutation, useCheckPaymentMutation } from '../../api/paymentApi';
 
 // ─── Forgot Password flow ─────────────────────────────────────────────────────
 
@@ -15,7 +14,6 @@ type ForgotStep = 'credentials' | 'otp' | 'newPassword' | 'done'
 function ForgotPasswordView({ onBack }: { onBack: () => void }) {
   const [step, setStep] = useState<ForgotStep>('credentials')
   const [phone, setPhone] = useState('+996')
-  const [codeWord, setCodeWord] = useState('')
   const [otp, setOtp] = useState(['', '', '', '', '', ''])
   const [timer, setTimer] = useState(300)
   const [newPassword, setNewPassword] = useState('')
@@ -36,18 +34,18 @@ function ForgotPasswordView({ onBack }: { onBack: () => void }) {
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`
 
   const handleSendOtp = async () => {
-    if (!phone.trim() || !codeWord.trim()) {
-      setError('Заполните все поля')
+    if (!phone.trim()) {
+      setError('Введите номер телефона')
       return
     }
     try {
-      await forgotPassword({ phone: phone.trim(), codeWord: codeWord.trim() }).unwrap()
+      await forgotPassword({ phone: phone.trim() }).unwrap()
       setOtp(['', '', '', '', '', ''])
       setTimer(300)
       setError('')
       setStep('otp')
     } catch (err: any) {
-      setError(err?.data?.message ?? 'Неверный номер или кодовое слово')
+      setError(err?.data?.message ?? 'Номер не найден')
     }
   }
 
@@ -60,12 +58,12 @@ function ForgotPasswordView({ onBack }: { onBack: () => void }) {
 
   const handleResend = async () => {
     try {
-      await forgotPassword({ phone: phone.trim(), codeWord: codeWord.trim() }).unwrap()
+      await forgotPassword({ phone: phone.trim() }).unwrap()
       setOtp(['', '', '', '', '', ''])
       setTimer(300)
       setError('')
     } catch (err: any) {
-      setError(err?.data?.message ?? 'Ошибка отправки SMS')
+      setError(err?.data?.message ?? 'Ошибка отправки кода')
     }
   }
 
@@ -109,7 +107,7 @@ function ForgotPasswordView({ onBack }: { onBack: () => void }) {
           <h2 className="text-2xl font-bold text-[#1A1A1A]">Восстановление пароля</h2>
           <p className="text-sm text-[#9B9589] mt-0.5">
             {step === 'credentials' && 'Введите номер и кодовое слово'}
-            {step === 'otp' && `Введите код из SMS на номер ${phone}`}
+            {step === 'otp' && `Код отправлен в Telegram на номер ${phone}`}
             {step === 'newPassword' && 'Придумайте новый пароль'}
             {step === 'done' && 'Пароль успешно изменён'}
           </p>
@@ -134,11 +132,7 @@ function ForgotPasswordView({ onBack }: { onBack: () => void }) {
           <div className="space-y-2">
             <label className="text-[10px] font-bold text-[#9B9589] uppercase tracking-widest block ml-1">Номер телефона</label>
             <input className={inputCls} type="tel" placeholder="+996 555 12 34 56" value={phone} onChange={(e) => { setPhone(e.target.value); setError('') }} />
-          </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-bold text-[#9B9589] uppercase tracking-widest block ml-1">Кодовое слово</label>
-            <input className={inputCls} type="text" placeholder="Ваше кодовое слово при регистрации" value={codeWord} onChange={(e) => { setCodeWord(e.target.value); setError('') }} />
-            <p className="text-[9px] font-medium text-[#9B9589] px-1">Слово, которое вы указали при регистрации</p>
+            <p className="text-[9px] font-medium text-[#9B9589] px-1">Код придёт в ваш Telegram</p>
           </div>
           {error && <ErrorAlert message={error} />}
           <button
@@ -146,7 +140,7 @@ function ForgotPasswordView({ onBack }: { onBack: () => void }) {
             disabled={isSending}
             className="w-full h-14 bg-[#1B2B20] text-white rounded-2xl text-[13px] font-bold uppercase tracking-widest shadow-xl shadow-[#1B2B20]/20 disabled:opacity-50 hover:bg-[#2C4A3E] transition-all"
           >
-            {isSending ? '...' : 'Получить SMS-код'}
+            {isSending ? '...' : 'Получить код'}
           </button>
         </div>
       )}
@@ -276,24 +270,6 @@ export default function Login() {
   const navigate = useNavigate();
   const [loginMutation, { isLoading }] = useLoginMutation();
   const { login: authLogin } = useAuth();
-  const [createQr, { isLoading: creatingQr }] = useCreateQrMutation();
-  const [checkPayment, { isLoading: checkingPayment }] = useCheckPaymentMutation();
-
-  const [showPayment, setShowPayment] = useState(false);
-  const [qrCode, setQrCode] = useState('');
-  const [txId, setTxId] = useState('');
-  const [paymentDone, setPaymentDone] = useState(false);
-
-  useEffect(() => {
-    if (!showPayment) return;
-    createQr(undefined)
-      .unwrap()
-      .then((res) => {
-        if (res?.data?.qrCode) setQrCode(res.data.qrCode);
-        if (res?.data?.transactionId) setTxId(res.data.transactionId);
-      })
-      .catch(() => setError('Не удалось создать QR. Попробуйте позже.'));
-  }, [showPayment]);
 
   const handleLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -301,16 +277,8 @@ export default function Login() {
     try {
       const result = await loginMutation({ phone, password }).unwrap();
       if (result.success && result.data?.accessToken) {
-        if (result.data?.needsPayment) {
-          localStorage.setItem('accessToken', result.data.accessToken);
-          if (result.data.refreshToken) localStorage.setItem('refreshToken', result.data.refreshToken);
-          if (result.data.userId) localStorage.setItem('userId', result.data.userId);
-          if (result.data.transactionId) setTxId(result.data.transactionId);
-          setShowPayment(true);
-        } else {
-          authLogin(result.data.accessToken, result.data.refreshToken, result.data.userId);
-          navigate('/');
-        }
+        authLogin(result.data.accessToken, result.data.refreshToken, result.data.userId);
+        navigate('/');
       } else {
         setError('Неверный номер телефона или пароль');
       }
@@ -319,93 +287,12 @@ export default function Login() {
     }
   };
 
-  const handlePaid = async () => {
-    if (!txId) { navigate('/'); return; }
-    try {
-      await checkPayment(txId).unwrap();
-      setPaymentDone(true);
-      setTimeout(() => navigate('/'), 1500);
-    } catch (err: any) {
-      if (err?.status === 404) { navigate('/'); return; }
-      setError(err?.data?.message ?? 'Платёж не подтверждён. Попробуйте позже.');
-    }
-  };
-
-  const qrSrc = qrCode.startsWith('http') ? qrCode : `data:image/png;base64,${qrCode}`;
-
   if (showForgot) {
     return (
       <AuthLayout>
         <ForgotPasswordView onBack={() => setShowForgot(false)} />
       </AuthLayout>
     )
-  }
-
-  if (showPayment) {
-    return (
-      <AuthLayout>
-        <div className="space-y-8">
-          <div className="text-center md:text-left">
-            <h2 className="text-2xl font-bold text-[#1A1A1A] mb-2">{t('auth.payment_title')}</h2>
-            <p className="text-sm font-medium text-[#9B9589]">{t('auth.payment_subtitle')}</p>
-          </div>
-
-          <div className="bg-white border border-[#E5DDD0] rounded-3xl p-6 shadow-xl shadow-black/5 flex flex-col md:flex-row items-center gap-6">
-            <div className="h-36 w-36 bg-[#F8F5F0] rounded-2xl flex items-center justify-center p-2 shrink-0">
-              {creatingQr ? (
-                <QrCode size={80} className="text-[#E5DDD0] animate-pulse" strokeWidth={1.5} />
-              ) : qrCode ? (
-                <img src={qrSrc} alt="QR" className="h-full w-full rounded-xl object-contain" />
-              ) : (
-                <QrCode size={80} className="text-[#1B2B20] opacity-70" strokeWidth={1.5} />
-              )}
-            </div>
-            <div className="flex-1 text-center md:text-left space-y-3">
-              <h4 className="font-bold text-[#1A1A1A]">{t('auth.scan_qr')}</h4>
-              <p className="text-[11px] font-medium text-[#9B9589] leading-relaxed">{t('auth.qr_hint')}</p>
-              {txId && <p className="text-[10px] font-bold text-[#9B9589] font-mono">ID: {txId}</p>}
-            </div>
-          </div>
-
-          {paymentDone ? (
-            <div className="bg-[#EDF5F1] border border-[#4A7C5E]/20 rounded-2xl py-3 px-5 flex items-center justify-center">
-              <span className="text-[10px] font-bold text-[#4A7C5E] uppercase tracking-widest">✓ Платёж подтверждён! Переходим...</span>
-            </div>
-          ) : (
-            <div className="bg-[#FEF3EC] border border-[#E07840]/20 rounded-2xl py-3 px-5 flex items-center justify-center gap-3">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E07840] opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#E07840]" />
-              </span>
-              <p className="text-[10px] font-bold text-[#E07840] uppercase tracking-widest">{t('auth.waiting_finik')}</p>
-            </div>
-          )}
-
-          {error && (
-            <div className="flex items-center gap-2 text-[11px] font-bold text-red-500 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
-              <AlertCircle size={14} className="shrink-0" />
-              {error}
-            </div>
-          )}
-
-          <div className="space-y-4">
-            <button
-              onClick={handlePaid}
-              disabled={checkingPayment || paymentDone}
-              className="w-full h-14 bg-[#1B2B20] text-white rounded-2xl text-[13px] font-bold uppercase tracking-widest shadow-xl shadow-[#1B2B20]/20 hover:bg-[#2C4A3E] transition-all disabled:opacity-50"
-            >
-              {checkingPayment ? '...' : t('auth.i_paid')}
-            </button>
-            <button
-              onClick={() => { setShowPayment(false); setError(''); }}
-              className="w-full py-2 flex items-center justify-center gap-2 text-[10px] font-bold text-[#9B9589] uppercase tracking-[0.2em] hover:text-[#1A1A1A] transition-colors"
-            >
-              <ArrowLeft size={14} /> {t('auth.cancel_exit')}
-            </button>
-          </div>
-        </div>
-      </AuthLayout>
-    );
   }
 
   return (

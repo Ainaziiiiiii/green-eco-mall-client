@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Copy, Check, AlertCircle, Smartphone, UserCheck, Eye, EyeOff } from 'lucide-react';
+import { Check, AlertCircle, UserCheck, Eye, EyeOff } from 'lucide-react';
 import AuthLayout from './AuthLayout';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../../lib/utils';
@@ -13,7 +13,6 @@ import {
   useLoginMutation,
   useGetInviterQuery,
 } from '../../api/authApi';
-import { useCreateQrMutation } from '../../api/paymentApi';
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -113,11 +112,9 @@ interface Step1Props {
 
 interface Step2Props {
   passportNumber: string;
-  codeWord: string;
   password: string;
   confirmPassword: string;
   setPassportNumber: (v: string) => void;
-  setCodeWord: (v: string) => void;
   setPassword: (v: string) => void;
   setConfirmPassword: (v: string) => void;
   onNext: () => void;
@@ -125,28 +122,13 @@ interface Step2Props {
   error: string;
 }
 
-interface Step3Props {
-  phone: string;
-  otp: string[];
-  setOtp: (v: string[]) => void;
-  timer: number;
-  onNext: () => void;
-  onBack: () => void;
-  onResend: () => void;
-  isLoading: boolean;
-  error: string;
-  formatTime: (s: number) => string;
-}
+type PlanId = 'FAST_START' | 'STANDARD' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4'
 
 interface StepPlanProps {
-  selectedPlan: 'FAST_START' | 'STANDARD' | null;
-  setSelectedPlan: (v: 'FAST_START' | 'STANDARD') => void;
+  selectedPlan: PlanId | null;
+  setSelectedPlan: (v: PlanId) => void;
   onNext: () => void;
   error: string;
-}
-
-interface Step4Props {
-  transactionId?: string;
 }
 
 // ─── Step 1 — Basic Info ──────────────────────────────────────────────────────
@@ -243,7 +225,6 @@ function Step1({
           value={phone}
           onChange={setPhone}
           type="tel"
-          sub="На этот номер придёт SMS с 6-значным кодом подтверждения"
         />
       </div>
 
@@ -261,84 +242,141 @@ function Step1({
 
 // ─── Step 2 — Plan Selection ──────────────────────────────────────────────────
 
-function StepPlan({ selectedPlan, setSelectedPlan, onNext, error }: StepPlanProps) {
-  const plans: {
-    id: 'FAST_START' | 'STANDARD';
-    title: string;
-    price: string;
-    badge: string | null;
-    description: string;
-  }[] = [
-    {
-      id: 'FAST_START',
-      title: '0 Уровень · Быстрый Старт',
-      price: '20 000 сом',
-      badge: 'Рекомендуем',
-      description: 'Ускоренный вход в сеть с приоритетным позиционированием',
-    },
-    {
-      id: 'STANDARD',
-      title: '1 Уровень · Стандартный вход',
-      price: '10 000 сом',
-      badge: null,
-      description: 'Стандартный вход — уровень 1 структуры',
-    },
-  ];
+const PLANS: {
+  id: PlanId;
+  level: string;
+  title: string;
+  price: string;
+  icon: string;
+  description: string;
+  accent: string;
+  bg: string;
+  recommended?: boolean;
+}[] = [
+  {
+    id: 'FAST_START',
+    level: '0 уровень',
+    title: 'Быстрый Старт',
+    price: '$230',
+    icon: '⚡',
+    description: 'Нужен 1 партнёр для перехода на уровень 1',
+    accent: '#E07840',
+    bg: 'rgba(224,120,64,0.06)',
+    recommended: true,
+  },
+  {
+    id: 'STANDARD',
+    level: '1 уровень',
+    title: 'Стандарт',
+    price: '$115',
+    icon: '🌱',
+    description: 'Стандартный вход, матрица из 6',
+    accent: '#4A7C5E',
+    bg: 'rgba(74,124,94,0.06)',
+  },
+  {
+    id: 'LEVEL_2',
+    level: '2 уровень',
+    title: '2 уровень',
+    price: '$500',
+    icon: '🔥',
+    description: 'Вход на уровень 2',
+    accent: '#3A7C8E',
+    bg: 'rgba(58,124,142,0.06)',
+  },
+  {
+    id: 'LEVEL_3',
+    level: '3 уровень',
+    title: '3 уровень',
+    price: '$2 000',
+    icon: '💎',
+    description: 'Вход на уровень 3',
+    accent: '#7C3A8E',
+    bg: 'rgba(124,58,142,0.06)',
+  },
+  {
+    id: 'LEVEL_4',
+    level: '4 уровень',
+    title: '4 уровень',
+    price: '$10 000',
+    icon: '👑',
+    description: 'Вход на уровень 4',
+    accent: '#8E7A3A',
+    bg: 'rgba(142,122,58,0.06)',
+  },
+]
 
+function StepPlan({ selectedPlan, setSelectedPlan, onNext, error }: StepPlanProps) {
   return (
-    <div className="space-y-6">
-      <div className="text-center md:text-left">
-        <h2 className="text-2xl font-bold text-[#1A1A1A] mb-2">Выберите место входа</h2>
-        <p className="text-sm font-medium text-[#9B9589]">Выберите один из вариантов участия в сети</p>
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-2xl font-bold text-[#1A1A1A] mb-1">Выберите тариф</h2>
+        <p className="text-sm font-medium text-[#9B9589]">Выберите уровень входа в сеть</p>
       </div>
 
-      <div className="space-y-3">
-        {plans.map((plan) => {
-          const active = selectedPlan === plan.id;
+      <div className="space-y-2.5">
+        {PLANS.map((plan) => {
+          const active = selectedPlan === plan.id
           return (
             <button
               key={plan.id}
               type="button"
               onClick={() => setSelectedPlan(plan.id)}
-              className={cn(
-                'w-full text-left rounded-3xl p-5 border-2 transition-all duration-200',
-                active
-                  ? 'border-[#1B2B20] bg-[#EDF5F1] shadow-lg shadow-[#1B2B20]/10'
-                  : 'border-[#E5DDD0] bg-[#F8F5F0] hover:border-[#9B9589]'
-              )}
+              className="w-full text-left transition-all duration-200"
+              style={{
+                borderRadius: 20,
+                padding: '14px 16px',
+                border: `2px solid ${active ? plan.accent : '#E5DDD0'}`,
+                backgroundColor: active ? plan.bg : 'white',
+                boxShadow: active ? `0 4px 20px ${plan.accent}22` : '0 1px 4px rgba(0,0,0,0.04)',
+              }}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3 flex-1 min-w-0">
-                  <div
-                    className={cn(
-                      'mt-0.5 w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors',
-                      active ? 'border-[#1B2B20] bg-[#1B2B20]' : 'border-[#C5BDB3] bg-white'
+              <div className="flex items-center gap-3">
+                {/* Icon */}
+                <div
+                  className="shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center text-xl"
+                  style={{ backgroundColor: active ? `${plan.accent}18` : '#F8F5F0' }}
+                >
+                  {plan.icon}
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-bold uppercase tracking-widest"
+                      style={{ color: active ? plan.accent : '#9B9589' }}>
+                      {plan.level}
+                    </span>
+                    {plan.recommended && (
+                      <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md text-white"
+                        style={{ backgroundColor: plan.accent }}>
+                        Рекомендуем
+                      </span>
                     )}
+                  </div>
+                  <p className="text-[14px] font-bold text-[#1A1A1A] leading-tight">{plan.title}</p>
+                  <p className="text-[11px] text-[#9B9589] mt-0.5 leading-snug">{plan.description}</p>
+                </div>
+
+                {/* Price + radio */}
+                <div className="shrink-0 flex flex-col items-end gap-2">
+                  <p className="text-[17px] font-black" style={{ color: active ? plan.accent : '#1A1A1A' }}>
+                    {plan.price}
+                  </p>
+                  <div
+                    className="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all"
+                    style={{
+                      borderColor: active ? plan.accent : '#C5BDB3',
+                      backgroundColor: active ? plan.accent : 'white',
+                    }}
                   >
                     {active && <div className="w-2 h-2 rounded-full bg-white" />}
                   </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[15px] font-bold text-[#1A1A1A]">{plan.title}</span>
-                      {plan.badge && (
-                        <span className="px-2 py-0.5 bg-[#1B2B20] text-white text-[8px] font-bold uppercase tracking-widest rounded-md">
-                          {plan.badge}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] font-medium text-[#9B9589] mt-1 leading-snug">
-                      {plan.description}
-                    </p>
-                  </div>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className={cn('text-lg font-bold', active ? 'text-[#1B2B20]' : 'text-[#1A1A1A]')}>
-                    {plan.price}
-                  </p>
                 </div>
               </div>
+
             </button>
-          );
+          )
         })}
       </div>
 
@@ -352,18 +390,16 @@ function StepPlan({ selectedPlan, setSelectedPlan, onNext, error }: StepPlanProp
         Продолжить
       </button>
     </div>
-  );
+  )
 }
 
 // ─── Step 3 (ex-2) — Passport & Password ──────────────────────────────────────
 
 function Step2({
   passportNumber,
-  codeWord,
   password,
   confirmPassword,
   setPassportNumber,
-  setCodeWord,
   setPassword,
   setConfirmPassword,
   onNext,
@@ -386,13 +422,6 @@ function Step2({
           value={passportNumber}
           onChange={setPassportNumber}
           sub={t('auth.passport_hint')}
-        />
-        <InputField
-          label="КОДОВОЕ СЛОВО"
-          placeholder="Например: Бишкек, мама, кошка..."
-          value={codeWord}
-          onChange={setCodeWord}
-          sub="Используется для восстановления пароля. Запомните его."
         />
         <PasswordField
           label={t('auth.password_label')}
@@ -446,206 +475,15 @@ function Step2({
   );
 }
 
-// ─── Step 4 (ex-3) — OTP Verification ────────────────────────────────────────
-
-function Step3({
-  phone,
-  otp,
-  setOtp,
-  timer,
-  onNext,
-  onBack,
-  onResend,
-  isLoading,
-  error,
-  formatTime,
-}: Step3Props) {
-  const { t } = useTranslation();
-  const refs = useRef<(HTMLInputElement | null)[]>([]);
-
-  const handleChange = (i: number, v: string) => {
-    if (!/^\d?$/.test(v)) return;
-    const next = [...otp];
-    next[i] = v;
-    setOtp(next);
-    if (v && i < 5) refs.current[i + 1]?.focus();
-  };
-
-  const handleKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !otp[i] && i > 0) {
-      refs.current[i - 1]?.focus();
-    }
-  };
-
-  const handlePaste = (e: React.ClipboardEvent) => {
-    const digits = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    const next = [...digits.split(''), ...Array(6 - digits.length).fill('')];
-    setOtp(next.slice(0, 6));
-    refs.current[Math.min(digits.length, 5)]?.focus();
-    e.preventDefault();
-  };
-
-  return (
-    <div className="space-y-8">
-      <div className="text-center md:text-left">
-        <h2 className="text-2xl font-bold text-[#1A1A1A] mb-2">{t('auth.confirm_phone')}</h2>
-        <p className="text-sm font-medium text-[#9B9589]">{t('auth.enter_sms')}</p>
-      </div>
-
-      <div className="bg-[#F8F5F0] border border-[#E5DDD0] rounded-2xl p-4 flex items-center justify-center gap-3">
-        <Smartphone size={16} className="text-[#9B9589]" />
-        <p className="text-[11px] font-bold text-[#1A1A1A] uppercase tracking-widest">
-          {t('auth.sms_sent_to', { phone })}
-        </p>
-      </div>
-
-      <div className="flex justify-between gap-2 md:gap-3" onPaste={handlePaste}>
-        {otp.map((val, i) => (
-          <input
-            key={i}
-            ref={(el) => {
-              refs.current[i] = el;
-            }}
-            type="text"
-            inputMode="numeric"
-            maxLength={1}
-            value={val}
-            onChange={(e) => handleChange(i, e.target.value)}
-            onKeyDown={(e) => handleKeyDown(i, e)}
-            className={cn(
-              'w-12 h-14 md:w-14 md:h-16 text-center text-2xl font-bold rounded-2xl border transition-all focus:outline-none focus:ring-2 focus:ring-[#1B2B20]/20',
-              val
-                ? 'bg-white border-[#1B2B20] text-[#1A1A1A] shadow-sm'
-                : 'bg-[#F8F5F0] border-[#E5DDD0]'
-            )}
-          />
-        ))}
-      </div>
-
-      <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2 text-[10px] font-bold text-[#9B9589] uppercase tracking-widest">
-          <AlertCircle size={14} className="text-[#E07840]" />
-          {t('auth.expires_in', { time: formatTime(timer) })}
-        </div>
-        <button
-          type="button"
-          disabled={timer > 0}
-          onClick={onResend}
-          className="text-[10px] font-bold text-[#1B2B20] border-b border-[#1B2B20] uppercase tracking-widest hover:text-[#2C4A3E] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {t('auth.resend_sms')}
-        </button>
-      </div>
-
-      <ErrorBox message={error} />
-
-      <button
-        onClick={onNext}
-        disabled={isLoading || otp.join('').length < 6}
-        className="w-full h-14 bg-[#1B2B20] text-white rounded-2xl text-[13px] font-bold uppercase tracking-widest shadow-xl shadow-[#1B2B20]/20 disabled:opacity-50 transition-all"
-      >
-        {isLoading ? '...' : t('auth.confirm_code')}
-      </button>
-
-      <button
-        onClick={onBack}
-        className="w-full py-2 flex items-center justify-center gap-2 text-[10px] font-bold text-[#9B9589] uppercase tracking-[0.2em] hover:text-[#1A1A1A] transition-colors"
-      >
-        <ArrowLeft size={14} /> {t('auth.change_phone')}
-      </button>
-    </div>
-  );
-}
-
-// ─── Step 5 (ex-4) — Payment ──────────────────────────────────────────────────
-
-function Step4({ transactionId: _initialTxId }: Step4Props) {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const [createQr] = useCreateQrMutation();
-  const [qrError, setQrError] = useState('');
-  const [redirecting, setRedirecting] = useState(true);
-  const called = useRef(false);
-
-  useEffect(() => {
-    if (called.current) return;
-    called.current = true;
-
-    createQr(undefined)
-      .unwrap()
-      .then((res) => {
-        const url = res?.data?.qrCode;
-        if (url) {
-          window.location.href = url;
-        } else {
-          setQrError('Не удалось получить ссылку для оплаты.');
-          setRedirecting(false);
-        }
-      })
-      .catch(() => {
-        setQrError('Не удалось создать платёж. Попробуйте позже.');
-        setRedirecting(false);
-      });
-  }, []);
-
-  if (redirecting && !qrError) {
-    return (
-      <div className="space-y-8 text-center">
-        <div className="text-center md:text-left">
-          <h2 className="text-2xl font-bold text-[#1A1A1A] mb-2">{t('auth.payment_title')}</h2>
-          <p className="text-sm font-medium text-[#9B9589]">{t('auth.payment_subtitle')}</p>
-        </div>
-        <div className="flex flex-col items-center gap-4 py-10">
-          <div className="w-10 h-10 rounded-full border-4 border-[#E5DDD0] border-t-[#1B2B20] animate-spin" />
-          <p className="text-[11px] font-bold text-[#9B9589] uppercase tracking-widest">
-            Переходим к оплате...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-8">
-      <div className="text-center md:text-left">
-        <h2 className="text-2xl font-bold text-[#1A1A1A] mb-2">{t('auth.payment_title')}</h2>
-        <p className="text-sm font-medium text-[#9B9589]">{t('auth.payment_subtitle')}</p>
-      </div>
-
-      <ErrorBox message={qrError} />
-
-      <div className="space-y-4">
-        <button
-          onClick={() => {
-            called.current = false;
-            setQrError('');
-            setRedirecting(true);
-          }}
-          className="w-full h-14 bg-[#1B2B20] text-white rounded-2xl text-[13px] font-bold uppercase tracking-widest shadow-xl shadow-[#1B2B20]/20 hover:bg-[#2C4A3E] transition-all"
-        >
-          Попробовать снова
-        </button>
-        <button
-          onClick={() => navigate('/login')}
-          className="w-full py-2 flex items-center justify-center gap-2 text-[10px] font-bold text-[#9B9589] uppercase tracking-[0.2em] hover:text-[#1A1A1A] transition-colors"
-        >
-          <ArrowLeft size={14} /> {t('auth.cancel_exit')}
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // ─── Main Register Component ──────────────────────────────────────────────────
 
 export default function Register() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const [step, setStep] = useState(1);
-  const [timer, setTimer] = useState(300);
   const [error, setError] = useState('');
-  const [transactionId, setTransactionId] = useState('');
 
   // Step 1 — basic info
   const [referralCode, setReferralCode] = useState(searchParams.get('ref') ?? '');
@@ -654,45 +492,22 @@ export default function Register() {
   const [phone, setPhone] = useState('+996');
 
   // Step 2 — plan selection
-  const [selectedPlan, setSelectedPlan] = useState<'FAST_START' | 'STANDARD' | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null);
 
   // Step 3 — security
   const [passportNumber, setPassportNumber] = useState('');
-  const [codeWord, setCodeWord] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Step 4 — OTP
-  const [otp, setOtp] = useState<string[]>(['', '', '', '', '', '']);
-
   const [registerMutation, { isLoading: isRegistering }] = useRegisterMutation();
   const [loginMutation] = useLoginMutation();
-  const [sendOtpMutation, { isLoading: isSendingOtp }] = useSendOtpMutation();
-  const [verifyOtpMutation, { isLoading: isVerifyingOtp }] = useVerifyOtpMutation();
+  const [verifyOtpMutation] = useVerifyOtpMutation();
 
-  useEffect(() => {
-    if (step !== 4 || timer <= 0) return;
-    const id = setInterval(() => setTimer((p) => p - 1), 1000);
-    return () => clearInterval(id);
-  }, [step, timer]);
-
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
-
-  const nextStep = (preserveError = false) => {
-    if (!preserveError) setError('');
-    setStep((p) => Math.min(p + 1, 5));
-  };
-
-  const prevStep = () => {
+  const nextStep = () => {
     setError('');
-    setStep((p) => Math.max(p - 1, 1));
+    setStep((p) => p + 1);
   };
 
-  // Step 1: validate and advance
   const handleStep1 = () => {
     if (!referralCode || !firstName || !lastName || !phone) {
       setError('Заполните все поля');
@@ -701,7 +516,7 @@ export default function Register() {
     nextStep();
   };
 
-  // Step 2: plan selection
+
   const handleStep2 = () => {
     if (!selectedPlan) {
       setError('Выберите вариант участия');
@@ -710,7 +525,7 @@ export default function Register() {
     nextStep();
   };
 
-  // Step 3: register → sendOtp → advance to OTP step
+  // Step 3: register → send-otp (fire & forget) → verify-otp(111111) → login → redirect
   const handleStep3 = async () => {
     if (password !== confirmPassword) {
       setError('Пароли не совпадают');
@@ -721,20 +536,16 @@ export default function Register() {
       return;
     }
 
-    // ── [ШАГ 1/5] Register ────────────────────────────────────────────────────
-    // Separate try-catch so an OTP failure doesn't look like a register failure.
     try {
-      const result = await registerMutation({
-        firstName, lastName, phone, passportNumber, codeWord, password, referralCode,
+      const regResult = await registerMutation({
+        firstName, lastName, phone, passportNumber, password, referralCode,
         plan: selectedPlan,
       }).unwrap();
 
-      if (result?.data?.accessToken) {
-        localStorage.setItem('accessToken', result.data.accessToken);
-        if (result.data.refreshToken) localStorage.setItem('refreshToken', result.data.refreshToken);
-        if (result.data.userId) localStorage.setItem('userId', result.data.userId);
-        if (result.data.transactionId) setTransactionId(result.data.transactionId);
-        if (result.data.paymentId) setTransactionId(result.data.paymentId);
+      if (regResult?.data?.accessToken) {
+        localStorage.setItem('accessToken', regResult.data.accessToken);
+        if (regResult.data.refreshToken) localStorage.setItem('refreshToken', regResult.data.refreshToken);
+        if (regResult.data.userId) localStorage.setItem('userId', String(regResult.data.userId));
       }
     } catch (regErr: any) {
       const msg: string = regErr?.data?.message ?? '';
@@ -744,68 +555,29 @@ export default function Register() {
         regErr?.status === 409;
 
       if (!alreadyExists) {
-        // Hard register error (bad data, server error, etc.) — stop here.
         setError(msg || 'Ошибка регистрации. Проверьте данные и попробуйте снова.');
         return;
       }
+    }
 
-      // User was created in a previous attempt but never confirmed OTP.
-      // Try a silent login to get a fresh token so we can re-send OTP.
-      try {
-        const loginResult = await loginMutation({ phone, password }).unwrap();
-        if (loginResult?.data?.accessToken) {
-          localStorage.setItem('accessToken', loginResult.data.accessToken);
-          if (loginResult.data.refreshToken) localStorage.setItem('refreshToken', loginResult.data.refreshToken);
-          if (loginResult.data.userId) localStorage.setItem('userId', loginResult.data.userId);
-        }
-      } catch {
-        // Login failed too — wrong password or fully confirmed account.
-        setError('Аккаунт с таким номером уже существует. Войдите через страницу входа.');
-        return;
+    // Verify OTP with fixed code (fire and forget)
+    verifyOtpMutation({ phone, code: '111111' }).catch(() => {});
+
+    // Login and redirect
+    try {
+      const loginResult = await loginMutation({ phone, password }).unwrap();
+      if (loginResult?.data?.accessToken) {
+        localStorage.setItem('accessToken', loginResult.data.accessToken);
+        if (loginResult.data.refreshToken) localStorage.setItem('refreshToken', loginResult.data.refreshToken);
+        if (loginResult.data.userId) localStorage.setItem('userId', String(loginResult.data.userId));
       }
-    }
-
-    // ── [ШАГ 2/5] Send OTP ────────────────────────────────────────────────────
-    // Even if this fails we still advance so the user can hit "Resend".
-    let otpSent = false;
-    try {
-      await sendOtpMutation(phone).unwrap();
-      otpSent = true;
-    } catch {
-      // Will be shown as a resend prompt in Step 3.
-    }
-
-    setOtp(['', '', '', '', '', '']);
-    setTimer(otpSent ? 300 : 0); // timer=0 → resend button immediately available
-    setError(otpSent ? '' : 'SMS не удалось отправить. Нажмите «Отправить снова».');
-    nextStep(!otpSent); // preserve the OTP error message when advancing
-  };
-
-  // Step 4: verify OTP
-  const handleStep4 = async () => {
-    const code = otp.join('');
-    if (code.length < 6) {
-      setError('Введите 6-значный код');
-      return;
-    }
-    try {
-      await verifyOtpMutation({ phone, code }).unwrap();
-      nextStep();
+      navigate('/');
     } catch (err: any) {
-      setError(err?.data?.message ?? 'Неверный код. Попробуйте ещё раз.');
+      setError(err?.data?.message ?? 'Ошибка входа после регистрации. Войдите вручную.');
     }
   };
 
-  const handleResendOtp = async () => {
-    try {
-      await sendOtpMutation(phone).unwrap();
-      setTimer(300);
-      setOtp(['', '', '', '', '', '']);
-      setError('');
-    } catch (err: any) {
-      setError(err?.data?.message ?? 'Ошибка отправки SMS.');
-    }
-  };
+  const isSubmitting = isRegistering;
 
   return (
     <AuthLayout>
@@ -814,7 +586,7 @@ export default function Register() {
         <div className="space-y-4">
           <div className="flex justify-between items-end">
             <div className="flex gap-1.5 h-1.5">
-              {[1, 2, 3, 4, 5].map((s) => (
+              {[1, 2, 3].map((s) => (
                 <div
                   key={s}
                   className={cn(
@@ -830,7 +602,7 @@ export default function Register() {
             </div>
             <div className="flex items-center gap-4">
               <span className="text-[10px] font-bold text-[#9B9589] uppercase tracking-widest">
-                {t('auth.step_of', { current: step, total: 5 })}
+                {t('auth.step_of', { current: step, total: 3 })}
               </span>
               <LanguageSwitcher />
             </div>
@@ -877,49 +649,30 @@ export default function Register() {
             {step === 3 && (
               <Step2
                 passportNumber={passportNumber}
-                codeWord={codeWord}
                 password={password}
                 confirmPassword={confirmPassword}
                 setPassportNumber={setPassportNumber}
-                setCodeWord={setCodeWord}
                 setPassword={setPassword}
                 setConfirmPassword={setConfirmPassword}
                 onNext={handleStep3}
-                isLoading={isRegistering || isSendingOtp}
+                isLoading={isSubmitting}
                 error={error}
               />
             )}
-            {step === 4 && (
-              <Step3
-                phone={phone}
-                otp={otp}
-                setOtp={setOtp}
-                timer={timer}
-                onNext={handleStep4}
-                onBack={prevStep}
-                onResend={handleResendOtp}
-                isLoading={isVerifyingOtp}
-                error={error}
-                formatTime={formatTime}
-              />
-            )}
-            {step === 5 && <Step4 transactionId={transactionId} />}
           </motion.div>
         </AnimatePresence>
 
-        {step < 5 && (
-          <div className="text-center pt-2">
-            <p className="text-[11px] font-bold text-[#9B9589] uppercase tracking-widest">
-              Уже есть аккаунт?{' '}
-              <Link
-                to="/login"
-                className="text-[#1B2B20] border-b border-[#1B2B20] pb-0.5 ml-1 hover:text-[#2C4A3E] hover:border-[#2C4A3E] transition-colors"
-              >
-                {t('common.login')}
-              </Link>
-            </p>
-          </div>
-        )}
+        <div className="text-center pt-2">
+          <p className="text-[11px] font-bold text-[#9B9589] uppercase tracking-widest">
+            Уже есть аккаунт?{' '}
+            <Link
+              to="/login"
+              className="text-[#1B2B20] border-b border-[#1B2B20] pb-0.5 ml-1 hover:text-[#2C4A3E] hover:border-[#2C4A3E] transition-colors"
+            >
+              {t('common.login')}
+            </Link>
+          </p>
+        </div>
       </div>
     </AuthLayout>
   );

@@ -42,7 +42,7 @@ export const authApi = baseApi.injectEndpoints({
       providesTags: ['User'],
     }),
     forgotPassword: builder.mutation({
-      query: (data: { phone: string; codeWord: string }) => ({
+      query: (data: { phone: string }) => ({
         url: '/api/auth/forgot-password',
         method: 'POST',
         body: data,

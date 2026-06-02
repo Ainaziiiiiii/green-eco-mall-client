@@ -26,12 +26,6 @@ function StatCard({ label, value, sub, dark }: { label: string; value: string; s
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 
-const STATUS_MAP: Record<string, { label: string; cls: string }> = {
-  PENDING:   { label: 'Ожидает',      cls: 'border border-[#E07840] text-[#E07840]' },
-  CONFIRMED: { label: 'Подтверждён',  cls: 'bg-[#EDF5F1] text-[#4A7C5E]' },
-  PAID:      { label: 'Выплачен',     cls: 'bg-[#2C4A3E] text-white' },
-}
-
 const TYPE_MAP: Record<string, string> = {
   REFERRAL_DIRECT:   'Прямой реферал',
   REFERRAL_INDIRECT: 'Косвенный реферал',
@@ -40,18 +34,15 @@ const TYPE_MAP: Record<string, string> = {
 }
 
 const FILTER_TYPES = ['', 'REFERRAL_DIRECT', 'REFERRAL_INDIRECT', 'STAGE', 'DIVIDEND']
-const FILTER_STATUSES = ['', 'PENDING', 'CONFIRMED', 'PAID']
 
 export default function BonusesPage() {
   const { t } = useTranslation()
   const [filterType, setFilterType] = useState('')
-  const [filterStatus, setFilterStatus] = useState('')
   const [page, setPage] = useState(0)
 
   const { data: summary, isLoading: summaryLoading } = useGetBonusSummaryQuery(undefined)
   const { data: bonuses, isLoading: bonusesLoading } = useGetBonusesQuery({
     type: filterType || undefined,
-    status: filterStatus || undefined,
     page,
     limit: 20,
   })
@@ -78,8 +69,8 @@ export default function BonusesPage() {
             sub="Подтвердятся при выполнении условий"
           />
           <StatCard
-            label="Подтверждено"
-            value={summaryLoading ? '...' : `${(s?.confirmed ?? 0).toLocaleString('ru-RU')} сом`}
+            label="Выплачено"
+            value={summaryLoading ? '...' : `${(s?.paid ?? 0).toLocaleString('ru-RU')} сом`}
           />
           <StatCard
             label="Всего заработано"
@@ -102,26 +93,13 @@ export default function BonusesPage() {
               ))}
             </select>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-[#9B9589] uppercase tracking-widest">Статус:</span>
-            <select
-              value={filterStatus}
-              onChange={(e) => { setFilterStatus(e.target.value); setPage(0) }}
-              className="h-9 px-3 rounded-xl border border-[#E5DDD0] bg-white text-xs font-bold text-[#1A1A1A] focus:outline-none focus:border-[#1B2B20]"
-            >
-              <option value="">Все статусы</option>
-              {FILTER_STATUSES.slice(1).map((s) => (
-                <option key={s} value={s}>{STATUS_MAP[s]?.label}</option>
-              ))}
-            </select>
-          </div>
         </div>
 
         {/* Table */}
         <div className="bg-white border border-[#E5DDD0] rounded-3xl overflow-hidden shadow-sm">
           {/* Desktop header */}
-          <div className="hidden md:grid grid-cols-[140px_0.7fr_1fr_100px_150px] gap-4 p-4 border-b border-[#E5DDD0] bg-[#F1EDE4]">
-            {['ДАТА', 'ТИП', 'ОПИСАНИЕ', 'СУММА', 'СТАТУС'].map((h) => (
+          <div className="hidden md:grid grid-cols-[140px_0.7fr_1fr_100px] gap-4 p-4 border-b border-[#E5DDD0] bg-[#F1EDE4]">
+            {['ДАТА', 'ТИП', 'ОПИСАНИЕ', 'СУММА'].map((h) => (
               <span key={h} className="text-[9px] font-bold text-[#9B9589] uppercase tracking-widest">{h}</span>
             ))}
           </div>
@@ -139,11 +117,10 @@ export default function BonusesPage() {
           )}
 
           {list.map((bonus: any) => {
-            const st = STATUS_MAP[bonus.status] ?? STATUS_MAP.PENDING
             return (
               <div key={bonus.id}>
                 {/* Desktop */}
-                <div className="hidden md:grid grid-cols-[140px_0.7fr_1fr_100px_150px] gap-4 items-center p-4 border-b border-[#F0EBE0] last:border-0 hover:bg-[#FAFAF8]">
+                <div className="hidden md:grid grid-cols-[140px_0.7fr_1fr_100px] gap-4 items-center p-4 border-b border-[#F0EBE0] last:border-0 hover:bg-[#FAFAF8]">
                   <span className="text-xs text-[#9B9589]">
                     {new Date(bonus.createdAt).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                   </span>
@@ -154,9 +131,6 @@ export default function BonusesPage() {
                   <span className="text-xs font-black text-[#1A1A1A] whitespace-nowrap">
                     {bonus.amount.toLocaleString('ru-RU')} сом
                   </span>
-                  <span className={cn('inline-block rounded-full px-3 py-1 text-[11px] font-black tracking-wide whitespace-nowrap', st.cls)}>
-                    ● {st.label}
-                  </span>
                 </div>
 
                 {/* Mobile */}
@@ -164,9 +138,6 @@ export default function BonusesPage() {
                   <div className="flex justify-between items-start mb-1.5">
                     <span className="text-[10px] font-bold text-[#9B9589] uppercase tracking-widest">
                       {new Date(bonus.createdAt).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })}
-                    </span>
-                    <span className={cn('inline-block rounded-full px-2 py-0.5 text-[8px] font-black tracking-widest', st.cls)}>
-                      ● {st.label.toUpperCase()}
                     </span>
                   </div>
                   <p className="text-[13px] font-bold text-[#1A1A1A] mb-0.5">{TYPE_MAP[bonus.type] ?? bonus.type}</p>

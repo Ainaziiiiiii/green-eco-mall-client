@@ -22,11 +22,18 @@ export const userApi = baseApi.injectEndpoints({
     }),
     updateProfile: builder.mutation({
       query: (body) => ({
-        url: '/api/user/me',
-        method: 'PATCH',
+        url: '/api/user/profile',
+        method: 'PUT',
         body,
       }),
       invalidatesTags: ['User'],
+    }),
+    uploadAvatar: builder.mutation<{ objectKey: string; url: string }, FormData>({
+      query: (formData) => ({
+        url: '/api/upload?type=AVATAR',
+        method: 'POST',
+        body: formData,
+      }),
     }),
   }),
 });
@@ -37,4 +44,5 @@ export const {
   useMarkAllNotificationsReadMutation,
   useGetReferralQrQuery,
   useUpdateProfileMutation,
+  useUploadAvatarMutation,
 } = userApi;

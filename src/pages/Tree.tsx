@@ -77,9 +77,13 @@ function buildLayout(root: any): { nodes: LayoutNode[]; canvasW: number; canvasH
 
   walk(root, 0, 0, 0)
 
-  // Assign sequential BFS positions to non-empty, non-root nodes
+  // Root is always position 1
+  const rootNode2 = nodes.find(n => n.depth === 0)
+  if (rootNode2) rootNode2.seqPos = 1
+
+  // Non-root non-empty nodes get positions 2, 3, 4...
   const nonRoot = nodes.filter(n => n.depth > 0).sort((a, b) => a.depth - b.depth || a.cx - b.cx)
-  let counter = 0
+  let counter = 1
   for (const ln of nonRoot) {
     const isEmpty = ln.node?.isEmpty || (!ln.node?.name && !ln.node?.initials && !ln.node?.isAccelerator)
     ln.seqPos = isEmpty ? 0 : ++counter
@@ -289,10 +293,14 @@ function RootCard({ node, level, stage }: { node: any; level: number; stage: num
   const initials = node?.initials ?? getInitials(name)
   return (
     <div className="rounded-xl p-3 shadow-md" style={{ width: ROOT_W, backgroundColor: '#1B2B20' }}>
-      <div className="mb-2">
+      <div className="mb-2 flex items-center gap-1.5">
+        <span className="rounded px-1.5 py-0.5 text-[9px] font-bold"
+          style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.5)' }}>
+          Поз. 1
+        </span>
         <span className="rounded px-1.5 py-0.5 text-[9px] font-bold"
           style={{ backgroundColor: 'rgba(224,120,64,0.2)', color: '#E07840' }}>
-ВЫ · КАПИТАН
+          ВЫ · КАПИТАН
         </span>
       </div>
       <div className="flex items-center gap-2">
@@ -328,6 +336,42 @@ function EmptySlotCard({ gPos }: { gPos: number }) {
 
 function mainTeamSize(stage: number) {
   return stage % 2 === 0 ? 2 : 6
+}
+
+function OrphanCard({ node, onNodeClick }: { node: any; onNodeClick?: (id: string) => void }) {
+  const initials = node?.initials ?? getInitials(node?.name)
+  const isClickable = !!node?.userId
+  return (
+    <div
+      className="relative"
+      style={{ width: CARD_W, cursor: isClickable ? 'pointer' : 'default' }}
+      onClick={isClickable ? () => onNodeClick?.(node.userId) : undefined}
+    >
+      <div className="absolute -top-2 -right-2 z-20 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black shadow-md"
+        style={{ backgroundColor: '#C5BDB3', color: 'white' }}>
+        ?
+      </div>
+      <div className="rounded-xl border-2 border-dashed bg-white shadow-sm overflow-hidden"
+        style={{ height: CARD_H, borderColor: '#C5BDB3' }}>
+        <div className="p-2.5">
+          <div className="mb-1.5 flex items-center justify-between gap-1">
+            <span className="rounded px-1 py-0.5 text-[8px] font-bold text-white"
+              style={{ backgroundColor: '#C5BDB3' }}>Участник</span>
+            <StatusBadge status={node?.stageStatus ?? node?.status} />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+              style={{ backgroundColor: colorForInitials(initials) }}>
+              {initials}
+            </div>
+            <p className="text-[11px] font-semibold leading-tight line-clamp-2 min-w-0 flex-1" style={{ color: '#1A1A1A' }}>
+              {node?.name ?? 'Участник'}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function MemberCard({ node, gPos, seqPos, stage = 1 }: { node: any; gPos: number; seqPos: number; stage?: number }) {
@@ -402,15 +446,22 @@ function MemberCard({ node, gPos, seqPos, stage = 1 }: { node: any; gPos: number
 
 // ─── Tree canvas ──────────────────────────────────────────────────────────────
 
-function TreeCanvas({ rootNode, level, stage, onNodeClick }: {
-  rootNode: any; level: number; stage: number; onNodeClick: (id: string) => void
+function TreeCanvas({ rootNode, level, stage, onNodeClick, orphanNodes = [] }: {
+  rootNode: any; level: number; stage: number; onNodeClick: (id: string) => void; orphanNodes?: any[]
 }) {
   const { nodes, canvasW, canvasH } = buildLayout(rootNode)
   const edges = buildEdges(nodes)
 
+  const hasOrphans = orphanNodes.length > 0
+  const orphanLabelH = hasOrphans ? 28 : 0
+  const orphanRowY = canvasH + orphanLabelH
+  const orphanRowW = orphanNodes.length * (CARD_W + 16) - 16
+  const orphanStartX = Math.max(0, (canvasW - orphanRowW) / 2)
+  const totalH = hasOrphans ? orphanRowY + CARD_H + PAD : canvasH
+
   return (
-    <div className="relative" style={{ width: canvasW, height: canvasH }}>
-      <svg className="pointer-events-none absolute inset-0" width={canvasW} height={canvasH}>
+    <div className="relative" style={{ width: canvasW, height: totalH }}>
+      <svg className="pointer-events-none absolute inset-0" width={canvasW} height={totalH}>
         {edges.map((e, i) => {
           const midY = (e.y1 + e.y2) / 2
           return (
@@ -442,6 +493,24 @@ function TreeCanvas({ rootNode, level, stage, onNodeClick }: {
           </div>
         )
       })}
+
+      {hasOrphans && (
+        <>
+          <div className="absolute flex items-center justify-center gap-2"
+            style={{ top: canvasH + 4, left: 0, right: 0 }}>
+            <div style={{ flex: 1, height: 1, backgroundColor: '#E5DDD0' }} />
+            <span className="text-[9px] font-bold uppercase tracking-widest whitespace-nowrap"
+              style={{ color: '#C5BDB3' }}>без спонсора</span>
+            <div style={{ flex: 1, height: 1, backgroundColor: '#E5DDD0' }} />
+          </div>
+          {orphanNodes.map((node, i) => (
+            <div key={`orphan-${i}`} className="absolute z-10 transition-transform hover:scale-105 duration-200"
+              style={{ left: orphanStartX + i * (CARD_W + 16), top: orphanRowY }}>
+              <OrphanCard node={node} onNodeClick={onNodeClick} />
+            </div>
+          ))}
+        </>
+      )}
     </div>
   )
 }
@@ -858,6 +927,7 @@ export default function TreePage() {
 
   const tree = treeData?.data
   const rootNode = tree?.root ?? null
+  const orphanNodes: any[] = tree?.orphanNodes ?? tree?.orphans ?? []
   const branches = branchesData?.data
   const stageBranches = tree?.branches ?? treeData?.branches ?? null
   const fastStartNumber: number | null = tree?.fastStartNumber ?? meData?.data?.fastStartNumber ?? null
@@ -919,6 +989,8 @@ export default function TreePage() {
     currentLevel > userCurrentLevel ||
     (currentLevel === userCurrentLevel && currentStage > userCurrentStage)
   )
+
+  const stageSkipped = !isLoading && !isFetching && !stageNotStarted && tree?.skipped === true
 
   return (
     <CabinetLayout title={t('dashboard.tree_title')}>
@@ -1040,17 +1112,33 @@ export default function TreePage() {
             </div>
           )}
 
-          {!isLoading && !isFetching && !stageNotStarted && !rootNode && (
+          {stageSkipped && (
+            <div className="flex flex-col items-center gap-4 py-14">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                style={{ backgroundColor: '#F0EBE0' }}>
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#C5BDB3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="5 4 15 12 5 20 5 4" />
+                  <line x1="19" y1="5" x2="19" y2="19" />
+                </svg>
+              </div>
+              <div className="text-center">
+                <p className="font-bold text-[#1A1A1A] text-base">Уровень {currentLevel} · Этап {currentStage} пропущен</p>
+                <p className="text-sm text-[#9B9589] mt-1">Вы зарегистрировались с более высокого уровня — этот этап не входит в ваш маршрут</p>
+              </div>
+            </div>
+          )}
+
+          {!isLoading && !isFetching && !stageNotStarted && !stageSkipped && !rootNode && (
             <p className="text-center text-[#9B9589] py-12 font-medium">Нет данных для этого уровня и этапа</p>
           )}
 
-          {!isLoading && !isFetching && !stageNotStarted && rootNode && (
+          {!isLoading && !isFetching && !stageNotStarted && !stageSkipped && rootNode && (
             <div className="bg-[#F8F5F0] rounded-2xl overflow-x-auto">
-              <div className="md:hidden py-6 px-4 flex justify-center" style={{ minWidth: 'max-content', zoom: 0.58 }}>
-                <TreeCanvas rootNode={rootNode} level={currentLevel} stage={currentStage} onNodeClick={setSelectedUserId} />
+              <div className="md:hidden py-6 px-4 flex flex-col items-center gap-4" style={{ minWidth: 'max-content', zoom: 0.58 }}>
+                <TreeCanvas rootNode={rootNode} level={currentLevel} stage={currentStage} onNodeClick={setSelectedUserId} orphanNodes={orphanNodes} />
               </div>
-              <div className="hidden md:flex py-8 px-6 justify-center" style={{ minWidth: 'max-content' }}>
-                <TreeCanvas rootNode={rootNode} level={currentLevel} stage={currentStage} onNodeClick={setSelectedUserId} />
+              <div className="hidden md:flex md:flex-col py-8 px-6 items-center gap-4" style={{ minWidth: 'max-content' }}>
+                <TreeCanvas rootNode={rootNode} level={currentLevel} stage={currentStage} onNodeClick={setSelectedUserId} orphanNodes={orphanNodes} />
               </div>
             </div>
           )}

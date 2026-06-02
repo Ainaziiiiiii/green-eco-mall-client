@@ -1,9 +1,9 @@
-import React, { useState } from 'react'
-import { Copy, Check, AlertCircle, Zap } from 'lucide-react'
+import React, { useState, useRef } from 'react'
+import { Copy, Check, AlertCircle, Zap, Camera } from 'lucide-react'
 import { CabinetLayout } from '#widgets/CabinetLayout'
 import { useTranslation } from 'react-i18next'
 import { useGetMeQuery } from '../api/authApi'
-import { useUpdateProfileMutation } from '../api/userApi'
+import { useUpdateProfileMutation, useUploadAvatarMutation } from '../api/userApi'
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
@@ -50,10 +50,13 @@ export default function ProfilePage() {
   const { t } = useTranslation()
   const { data: meData, isLoading } = useGetMeQuery(undefined)
   const [updateProfile, { isLoading: isSaving }] = useUpdateProfileMutation()
+  const [uploadAvatar, { isLoading: isUploading }] = useUploadAvatarMutation()
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [editing, setEditing] = useState(false)
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
+  const [passportNumber, setPassportNumber] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
@@ -63,6 +66,7 @@ export default function ProfilePage() {
   const handleEdit = () => {
     setFirstName(user?.firstName ?? '')
     setLastName(user?.lastName ?? '')
+    setPassportNumber(user?.passportNumber ?? '')
     setNewPassword('')
     setError('')
     setEditing(true)
@@ -72,6 +76,7 @@ export default function ProfilePage() {
     const body: any = {}
     if (firstName !== user?.firstName) body.firstName = firstName
     if (lastName !== user?.lastName) body.lastName = lastName
+    if (passportNumber !== (user?.passportNumber ?? '')) body.passportNumber = passportNumber
     if (newPassword) body.password = newPassword
     if (!Object.keys(body).length) {
       setEditing(false)
@@ -85,6 +90,20 @@ export default function ProfilePage() {
     } catch (err: any) {
       setError(err?.data?.message ?? 'Ошибка сохранения')
     }
+  }
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const formData = new FormData()
+    formData.append('file', file)
+    try {
+      const { objectKey } = await uploadAvatar(formData).unwrap()
+      await updateProfile({ avatarKey: objectKey }).unwrap()
+    } catch {
+      // silently ignore upload errors
+    }
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   if (isLoading) {
@@ -106,8 +125,30 @@ export default function ProfilePage() {
         <div className="rounded-3xl border border-[#E5DDD0] bg-white p-6 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="h-14 w-14 rounded-2xl bg-[#1B2B20] flex items-center justify-center text-white text-lg font-bold">
-                {user?.firstName?.[0]}{user?.lastName?.[0]}
+              <div className="relative">
+                <div className="h-14 w-14 rounded-2xl bg-[#1B2B20] flex items-center justify-center text-white text-lg font-bold overflow-hidden">
+                  {user?.avatarUrl
+                    ? <img src={user.avatarUrl} alt="avatar" className="h-full w-full object-cover" />
+                    : <>{user?.firstName?.[0]}{user?.lastName?.[0]}</>
+                  }
+                </div>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="absolute -bottom-1.5 -right-1.5 h-6 w-6 rounded-full bg-[#E07840] flex items-center justify-center shadow-md hover:bg-[#c9612e] transition-colors disabled:opacity-50"
+                >
+                  {isUploading
+                    ? <span className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    : <Camera size={11} className="text-white" />
+                  }
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarChange}
+                />
               </div>
               <div>
                 <h2 className="text-xl font-bold text-[#1A1A1A]">
@@ -161,6 +202,14 @@ export default function ProfilePage() {
                 <input
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
+                  className="w-full h-12 px-4 bg-[#F8F5F0] border border-[#E5DDD0] rounded-xl text-sm font-bold text-[#1A1A1A] focus:outline-none focus:border-[#1B2B20]"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-[#9B9589] uppercase tracking-widest">Паспорт</label>
+                <input
+                  value={passportNumber}
+                  onChange={(e) => setPassportNumber(e.target.value)}
                   className="w-full h-12 px-4 bg-[#F8F5F0] border border-[#E5DDD0] rounded-xl text-sm font-bold text-[#1A1A1A] focus:outline-none focus:border-[#1B2B20]"
                 />
               </div>
