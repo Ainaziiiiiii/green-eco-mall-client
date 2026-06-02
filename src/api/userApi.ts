@@ -35,6 +35,9 @@ export const userApi = baseApi.injectEndpoints({
         body: formData,
       }),
     }),
+    getMyReferrals: builder.query<any[], void>({
+      query: () => '/api/user/my-referrals',
+    }),
   }),
 });
 
@@ -45,4 +48,5 @@ export const {
   useGetReferralQrQuery,
   useUpdateProfileMutation,
   useUploadAvatarMutation,
+  useGetMyReferralsQuery,
 } = userApi;

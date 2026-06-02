@@ -13,7 +13,8 @@ import {
   LogOut,
   Menu,
   X,
-  Shield
+  Shield,
+  Users
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -52,6 +53,7 @@ export function CabinetLayout({ children, title }: CabinetLayoutProps) {
     { name: t('common.levels'), icon: Layers, section: 'КАБИНЕТ', path: '/levels' },
     { name: 'Бонусы', icon: BarChart3, section: 'КАБИНЕТ', path: '/bonuses' },
     { name: t('common.withdraw'), icon: Wallet, section: 'КАБИНЕТ', path: '/withdraw' },
+    { name: 'Рефералы', icon: Users, section: 'КАБИНЕТ', path: '/referrals' },
     { name: 'Новости', icon: Newspaper, section: 'АККАУНТ', path: '/news' },
     { name: t('common.notifications'), icon: Bell, section: 'АККАУНТ', path: '/notifications' },
     { name: t('common.profile'), icon: UserIcon, section: 'АККАУНТ', path: '/profile' },
